@@ -61,21 +61,23 @@ def ctrl_pose (x,y,th,x_g,y_g,th_g):
     #(x_g,y_g,th-g): desired final state
 
     # Define Controller Gains
-    k1 = 1.0
-    k2 = 2.0
-    k3 = 1.0
+    k1 = 0.8
+    k2 = 0.5
+    k3 = 0.5
 
     # Define relevant control parameters
     rho = math.sqrt((x-x_g)**2 + (y-y_g)**2)
     alpha = wrapToPi(math.atan2(y_g-y,x_g-x) - th)
-    delta = wrapToPi(alpha + th)
+    delta = wrapToPi(alpha + th - th_g)
 
     # Control Law
     V = k1*rho*math.cos(alpha)
-    om = wrapToPi(k2*alpha + k1*(math.cos(alpha)*math.sin(alpha)/alpha)*(alpha + k3*delta))
+    om = k2*alpha + k1*(math.cos(alpha)*math.sin(alpha)/alpha)*(alpha + k3*delta)
 
     # For debugging, uncomment following line
-    # pdb.set_trace()
+    # if math.fabs(delta) < 0.01:
+    #     pdb.set_trace()
+
 
     # Apply saturation limits
     V = np.sign(V)*min(0.5, np.abs(V))
