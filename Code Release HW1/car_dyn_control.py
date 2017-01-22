@@ -72,7 +72,7 @@ def ctrl_pose (x,y,th,x_g,y_g,th_g):
 
     # Control Law
     V = k1*rho*math.cos(alpha)
-    om = k2*alpha + k1*(math.cos(alpha)*math.sin(alpha)/alpha)*(alpha + k3*delta)
+    om = k2*alpha + k1*(np.sinc(2*alpha/np.pi))*(alpha + k3*delta)
 
     # For debugging, uncomment following line
     # if math.fabs(delta) < 0.01:
