@@ -4,19 +4,35 @@ from scipy import linalg
 import scikits.bvp_solver
 import matplotlib.pyplot as plt
 
-
-def q1_ode_fun(tau, y):
-
-    #Code in the BVP ODEs
+import pdb
 
 
-    return #...FILL...#
+def q1_ode_fun(tau,z):
 
+    #Return array containing RHS of ODEs
+    #z = [x y th p1 p2 p3 r]
+
+    # Use dHdu eqtns to define w and V
+    om = -z[5]/2
+    V = (-z[3]*math.cos(z[2]) - z[4]*math.sin(z[2]))/2
+
+    # ODE Equations
+    x_dot = V*math.cos(z[2])
+    y_dot = V*math.sin(z[2])
+    th_dot = om
+    dHdth = z[3]*V*math.sin(z[2]) - z[4]*V*math.cos(z[2])
+    p_dot = np.hstack((0,0,dHdth))
+    r_dot = 0 #dummy state ode
+
+    outputArr = z[6]*np.hstack((x_dot,y_dot,th_dot,p_dot,r_dot))
+
+    return outputArr
 
 def q1_bc_fun(ya, yb):
+    #z = [x y th p1 p2 p3 r]
 
     #lambda
-    lambda_test = 20
+    lambda_test = 1
 
     #goal pose
     x_g = 5
@@ -27,16 +43,44 @@ def q1_bc_fun(ya, yb):
     #initial pose
     x0 = [0, 0, -np.pi/2.0]
 
+    # Find V and w using right BCs
+    w = -yb[5]/2
+    V = (-yb[3]*math.cos(yb[2]) - yb[4]*math.sin(yb[2]))/2
+
     #Code boundary condition residuals
 
-    return #...FILL...#
+    #Return a tuple containing 2 arrays - left and right side BC residuals
+    #Note: len(left BCs) + len(right BCs) = num of ODEs
+
+    #Left BCs
+    BC_left = np.array([ya[0]-x0[0], ya[1]-x0[1], ya[2]-x0[2]])
+
+    #Free final time constraint
+    H_f = lambda_test + V**2 + w**2 + yb[3]*V*math.cos(yb[2]) + yb[4]*V*math.sin(yb[2]) + yb[5]*w 
+    # CHECK - Should only be in terms of yb!
+
+    #Right BCs
+    BC_right = np.array([yb[0]-xf[0], yb[1]-xf[1], yb[2]-xf[2], H_f])
+
+    return (BC_left, BC_right)
+
+def States_Init():
+    #z = [x y th p1 p2 p3 r]
+    #(2.5,2.5,np.pi/2.0,1,-2,1,5.0)
+    return (2.0,2.0,-np.pi/2.0,-2,-2,0.5,20.0)
 
 #Define solver state: y = [x, y, th, ...? ]
-problem = scikits.bvp_solver.ProblemDefinition(#...FILL...#
-                                                )
+problem = scikits.bvp_solver.ProblemDefinition(num_ODE=7, #Number of ODes
+                                            num_parameters = 0, #Number of parameters
+                                            num_left_boundary_conditions = 3, #Number of left BCs
+                                            boundary_points = (0,1), #Boundary points of independent coordinate
+                                            function = q1_ode_fun, #ODE function
+                                            boundary_conditions = q1_bc_fun) #BC function
 
-soln = scikits.bvp_solver.solve(problem, solution_guess = (#...FILL...#
-                                                            ))
+#Defne initial guess as a tuple (constant solution)
+guess = States_Init()
+
+soln = scikits.bvp_solver.solve(problem, solution_guess = guess)
 
 dt = 0.005
 
@@ -55,15 +99,17 @@ if flip:
     y[3:7,:] = -y[3:7,:]
 y = y.T # solution arranged column-wise
 
-V = #...FILL...#
-om = #...FILL...#
+# pdb.set_trace()
 
-V = np.array([V]).T # Convert to 1D column matrices
-om = np.array([om]).T
+# V = #...FILL...#
+# om = #...FILL...#
 
-#Save Data
-data = #...FILL...#
-np.save('traj_opt_data',data)
+# V = np.array([V]).T # Convert to 1D column matrices
+# om = np.array([om]).T
+
+# #Save Data
+# data = #...FILL...#
+# np.save('traj_opt_data',data)
 
 # Plots
 plt.figure()
@@ -74,11 +120,11 @@ plt.plot(0,0,'go',markerfacecolor='green',markersize=15)
 plt.plot(5,5,'ro',markerfacecolor='red', markersize=15)
 plt.xlabel('X'); plt.ylabel('Y')
 
-plt.figure()
-plt.plot(t, V,linewidth=2)
-plt.plot(t, om,linewidth=2)
-plt.grid('on')
-plt.xlabel('Time [s]')
-plt.legend(['V [m/s]', '$\omega$ [rad/s]'],loc='center left', bbox_to_anchor=(1,0.5))
+# plt.figure()
+# plt.plot(t, V,linewidth=2)
+# plt.plot(t, om,linewidth=2)
+# plt.grid('on')
+# plt.xlabel('Time [s]')
+# plt.legend(['V [m/s]', '$\omega$ [rad/s]'],loc='center left', bbox_to_anchor=(1,0.5))
 
 plt.show()
