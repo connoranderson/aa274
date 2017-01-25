@@ -12,7 +12,6 @@ def car_dyn(x, t, ctrl, noise):
 
     return dxdt
 
-# TODO Implement this part
 def ctrl_traj(x,y,th,dyn_state,ctrl_prev,x_d,y_d,xd_d,yd_d,xdd_d,ydd_d,x_g,y_g,th_g):
     #(x,y,th): current state
     #dyn_state: compensator internal dynamic state
@@ -22,7 +21,7 @@ def ctrl_traj(x,y,th,dyn_state,ctrl_prev,x_d,y_d,xd_d,yd_d,xdd_d,ydd_d,x_g,y_g,t
     #(x_g,y_g,th_g): desired final state
 
     # Timestep
-    dt = 0.0025
+    dt = 0.005
 
     # Gains
     kpx = 1.3
@@ -33,12 +32,11 @@ def ctrl_traj(x,y,th,dyn_state,ctrl_prev,x_d,y_d,xd_d,yd_d,xdd_d,ydd_d,x_g,y_g,t
     # Switch to ctrl_pose if close to goal
     if np.linalg.norm([x-x_g , y-y_g]) < 0.8:
         [V, om] = ctrl_pose (x,y,th,x_g,y_g,th_g)
-        return np.array([V, om, 0])
+        dyn_state_up = 0
     else:
         #Code trajectory controller
-        V = dyn_state
-        xd = V*math.cos(th)
-        yd = V*math.sin(th)
+        xd = ctrl_prev[0]*math.cos(th)
+        yd = ctrl_prev[0]*math.sin(th)
 
         u1 = xdd_d +kpx*(x_d - x) + kdx*(xd_d - xd)
         u2 = ydd_d +kpy*(y_d - y) + kdy*(yd_d - yd)
@@ -48,16 +46,16 @@ def ctrl_traj(x,y,th,dyn_state,ctrl_prev,x_d,y_d,xd_d,yd_d,xdd_d,ydd_d,x_g,y_g,t
         [math.sin(th), dyn_state*math.cos(th)]])
 
         xsol = np.linalg.solve(A,[u1, u2])
-        om = xsol[1]
 
-        # pdb.set_trace()
+        # Extract dyn_state_dot and omega from matrix equation
+        om = xsol[1]    
+        V = dyn_state
+        #Define accel = dV/dt
+        accel = xsol[0]
 
         # Account for singularities with a "reset"
-        if dyn_state < 0.001:
+        if dyn_state < 0.01:
             dyn_state = math.sqrt(xd**2 + yd**2)
-
-        #Define accel = dV/dt
-        accel = (V - ctrl_prev[0])/dt
 
         #Integrate dynamic state with anti-windup
         if (V > 0.5 or om > 1.0) and (accel > 0.0): #integration will only make things worse
@@ -66,11 +64,11 @@ def ctrl_traj(x,y,th,dyn_state,ctrl_prev,x_d,y_d,xd_d,yd_d,xdd_d,ydd_d,x_g,y_g,t
         else:
             dyn_state_up = dyn_state + accel*dt
 
-        # Apply saturation limits
-        V = np.sign(V)*min(0.5, np.abs(V))
-        om = np.sign(om)*min(1, np.abs(om))
+    # Apply saturation limits
+    V = np.sign(V)*min(0.5, np.abs(V))
+    om = np.sign(om)*min(1, np.abs(om))
 
-        return np.array([V, om, dyn_state_up])
+    return np.array([V, om, dyn_state_up])
 
 
 def wrapToPi(a):
@@ -89,16 +87,12 @@ def ctrl_pose (x,y,th,x_g,y_g,th_g):
 
     # Define relevant control parameters
     rho = math.sqrt((x-x_g)**2 + (y-y_g)**2)
-    alpha = wrapToPi(math.atan2(y_g-y,x_g-x) - th)
+    alpha = wrapToPi(math.atan2(y_g-y,x_g-x) - th )
     delta = wrapToPi(alpha + th - th_g)
 
     # Control Law
     V = k1*rho*math.cos(alpha)
     om = k2*alpha + k1*(np.sinc(2*alpha/np.pi))*(alpha + k3*delta)
-
-    # For debugging, uncomment following line
-    # if math.fabs(delta) < 0.01:
-    #     pdb.set_trace()
 
 
     # Apply saturation limits
