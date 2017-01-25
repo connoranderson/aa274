@@ -25,30 +25,52 @@ def ctrl_traj(x,y,th,dyn_state,ctrl_prev,x_d,y_d,xd_d,yd_d,xdd_d,ydd_d,x_g,y_g,t
     dt = 0.0025
 
     # Gains
-    # kpx =
-    # kpy =
-    # kdx =
-    # kdy =
-
-    #Code trajectory controller (Switch to pose controller once "close" enough)
-    #...FILL...#
-
-    #Define control inputs (V,om) - without saturation constraints
-
-    #Define accel = dV/dt
-
-    #Integrate dynamic state with anti-windup
-    if (V > 0.5 or om > 1.0) and (accel > 0.0): #integration will only make things worse
-        if (V > 0.5): dyn_state_up = 0.5 #cap-off integrator at max
-        else: dyn_state_up = dyn_state #or just freeze integration
+    kpx = 1.3
+    kpy = 1.6
+    kdx = 1.0
+    kdy = 0.9
+    
+    # Switch to ctrl_pose if close to goal
+    if np.linalg.norm([x-x_g , y-y_g]) < 0.8:
+        [V, om] = ctrl_pose (x,y,th,x_g,y_g,th_g)
+        return np.array([V, om, 0])
     else:
-        dyn_state_up = dyn_state + accel*dt
+        #Code trajectory controller
+        V = dyn_state
+        xd = V*math.cos(th)
+        yd = V*math.sin(th)
 
-    # Apply saturation limits
-    V = np.sign(V)*min(0.5, np.abs(V))
-    om = np.sign(om)*min(1, np.abs(om))
+        u1 = xdd_d +kpx*(x_d - x) + kdx*(xd_d - xd)
+        u2 = ydd_d +kpy*(y_d - y) + kdy*(yd_d - yd)
 
-    return np.array([V, om, dyn_state_up])
+        #Define control inputs (V,om) - without saturation constraints
+        A = np.matrix([[math.cos(th), -dyn_state*math.sin(th)],  
+        [math.sin(th), dyn_state*math.cos(th)]])
+
+        xsol = np.linalg.solve(A,[u1, u2])
+        om = xsol[1]
+
+        # pdb.set_trace()
+
+        # Account for singularities with a "reset"
+        if dyn_state < 0.001:
+            dyn_state = math.sqrt(xd**2 + yd**2)
+
+        #Define accel = dV/dt
+        accel = (V - ctrl_prev[0])/dt
+
+        #Integrate dynamic state with anti-windup
+        if (V > 0.5 or om > 1.0) and (accel > 0.0): #integration will only make things worse
+            if (V > 0.5): dyn_state_up = 0.5 #cap-off integrator at max
+            else: dyn_state_up = dyn_state #or just freeze integration
+        else:
+            dyn_state_up = dyn_state + accel*dt
+
+        # Apply saturation limits
+        V = np.sign(V)*min(0.5, np.abs(V))
+        om = np.sign(om)*min(1, np.abs(om))
+
+        return np.array([V, om, dyn_state_up])
 
 
 def wrapToPi(a):

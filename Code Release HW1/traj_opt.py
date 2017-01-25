@@ -32,7 +32,7 @@ def q1_bc_fun(ya, yb):
     #z = [x y th p1 p2 p3 r]
 
     #lambda
-    lambda_test = 1
+    lambda_test = 0.2
 
     #goal pose
     x_g = 5
@@ -99,17 +99,34 @@ if flip:
     y[3:7,:] = -y[3:7,:]
 y = y.T # solution arranged column-wise
 
-# pdb.set_trace()
+# Extract solution vectors
+xtraj = y[:,0]
+ytraj = y[:,1] 
+thtraj = y[:,2]
 
-# V = #...FILL...#
-# om = #...FILL...#
+xdot = np.diff(xtraj)/dt
+ydot = np.diff(ytraj)/dt
+om = np.diff(thtraj)/dt
 
-# V = np.array([V]).T # Convert to 1D column matrices
-# om = np.array([om]).T
+xdot = np.append(0,xdot)
+ydot = np.append(0,ydot)
+om = np.append(0,om)
 
-# #Save Data
-# data = #...FILL...#
-# np.save('traj_opt_data',data)
+
+# Apply a sign to V to account for reverse direction
+N = xdot.size
+V = np.sqrt(np.power(xdot,2) + np.power(ydot,2))
+for i in range(1, N):
+    if math.atan2(ydot[i],xdot[i]) != math.atan2(V[i]*math.sin(thtraj[i]),(V[i]*math.cos(thtraj[i]))):
+        V[i] = -V[i]
+
+
+# Save Data
+# Save the state and control histories as a .npy file with the format (x; y; theta; V; w).
+data = np.column_stack((xtraj, ytraj, thtraj, V, om))
+np.save('traj_opt_data',data)
+
+pdb.set_trace()
 
 # Plots
 plt.figure()
@@ -120,11 +137,11 @@ plt.plot(0,0,'go',markerfacecolor='green',markersize=15)
 plt.plot(5,5,'ro',markerfacecolor='red', markersize=15)
 plt.xlabel('X'); plt.ylabel('Y')
 
-# plt.figure()
-# plt.plot(t, V,linewidth=2)
-# plt.plot(t, om,linewidth=2)
-# plt.grid('on')
-# plt.xlabel('Time [s]')
-# plt.legend(['V [m/s]', '$\omega$ [rad/s]'],loc='center left', bbox_to_anchor=(1,0.5))
+plt.figure()
+plt.plot(t, V,linewidth=2)
+plt.plot(t, om,linewidth=2)
+plt.grid('on')
+plt.xlabel('Time [s]')
+plt.legend(['V [m/s]', '$\omega$ [rad/s]'],loc='center left', bbox_to_anchor=(1,0.5))
 
 plt.show()

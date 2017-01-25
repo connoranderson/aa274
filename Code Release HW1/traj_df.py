@@ -56,19 +56,16 @@ xd_traj = np.copy(xtraj)
 yd_traj = np.copy(xtraj)
 xdd_traj = np.copy(xtraj)
 ydd_traj = np.copy(xtraj)
-
-xdd_traj[0] = 0
-ydd_traj[0] = 0
-
-xd_traj[0] = 0
-yd_traj[0] = -1
-
 th_traj = np.copy(xtraj)
-th_traj[0] = -np.pi/2
 V_traj = np.copy(xtraj)
 w_traj = np.copy(xtraj)
 
-V_traj[0] = 1
+xdd_traj[0] = 0
+ydd_traj[0] = 0
+xd_traj[0] = 0
+yd_traj[0] = -1
+th_traj[0] = -np.pi/2
+V_traj[0] = -1
 w_traj[0] = 0
 
 # Solve for xdot, ydot, thdot, w, and V
@@ -97,27 +94,17 @@ data[:,7] = xd_traj
 data[:,8] = yd_traj
 
 
-
-plt.figure()
-plt.plot(t, V_traj,'k-',linewidth=2)
-plt.grid('on')
-plt.plot(t,w_traj,'g-',linewidth=2)
-plt.xlabel('t'); plt.ylabel('V')
-plt.legend(['V [m/s]', '$\omega$ [rad/s]'],loc='center left', bbox_to_anchor=(1,0.5))
-
-
 # Re-scaling - Compute scaled trajectory, store in data_scaled
 
 # Find S variable at 5ms increments
 S = integrate.cumtrapz(V_traj, t, initial=0)
 
-plt.figure()
-plt.plot(S,V_traj,'k-',linewidth=2)
-plt.grid('on')
-plt.xlabel('S'); plt.ylabel('V')
+# plt.figure()
+# plt.plot(S,V_traj,'k-',linewidth=2)
+# plt.grid('on')
+# plt.xlabel('S'); plt.ylabel('V')
 
 # Apply constraints to velocity vector
-
 V_tilde = np.copy(V_traj)
 
 for i in range(1, N+1):
@@ -131,7 +118,6 @@ plt.plot(S,V_tilde,'k-',linewidth=2)
 plt.grid('on')
 plt.xlabel('S'); plt.ylabel('V_tilde')
 
-
 # Get rescaled time 
 funct = np.asarray(np.power(V_tilde,-1)).squeeze()
 t_tilde = integrate.cumtrapz(funct, S, initial=0)
@@ -142,16 +128,9 @@ t_tilde_5ms = np.arange(0,max(t_tilde),dt)
 
 # Rescale s to 5ms increments
 s_tilde = integrate.cumtrapz(V_tilde, t_tilde, initial=0)
-
 s_tilde_5ms = np.interp(t_tilde_5ms,t_tilde,s_tilde)
 
-plt.figure()
-plt.plot(t,S,'k-',linewidth=2)
-plt.plot(t_tilde_5ms,s_tilde_5ms,'g-',linewidth=2)
-plt.grid('on')
-plt.xlabel('S'); plt.ylabel('V_tilde')
-
-# Get w, V, x, y, theta
+# Get w, V, x, y, theta, xdot, ydot, xddot, and yddot
 
 V_5ms = np.interp(t_tilde_5ms,t_tilde,V_tilde)
 
@@ -186,9 +165,13 @@ data_scaled[:,6] = y_dot_5ms
 data_scaled[:,5] = x_ddot_5ms
 data_scaled[:,6] = y_ddot_5ms
 
+#Save data
+np.save('traj_df_data',data_scaled)
+
+# pdb.set_trace()
+
 t_scaled = t_tilde_5ms
 s_scaled = s_tilde_5ms
-
 
 # Plots
 plt.figure()
@@ -222,5 +205,4 @@ plt.ylabel('Arc-length [m]')
 
 plt.show()
 
-#Save data
-np.save('traj_df_data',data_scaled)
+
