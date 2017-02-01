@@ -231,18 +231,116 @@ class CameraCalibrator:
     return u_meas, v_meas   # Lists of arrays (one per chessboard)
 
   def genCornerCoordinates(self, u_meas, v_meas):
+    
+    X = []
+    Y = []
 
+    for i in range(self.n_corners_y):
+      line = np.multiply(self.d_square,np.arange(self.n_corners_x))
+      reversedLine = line[::-1]
+      X.append(reversedLine)
+
+    for i in range(self.n_corners_y):
+      Y.append(np.multiply(i*self.d_square,np.ones(self.n_corners_x)))
+
+    X = np.concatenate(X)
+    Y = np.concatenate(Y)
+
+    # pdb.set_trace()
 
     return X, Y
 
   def estimateHomography(self, u_meas, v_meas, X, Y):
+    
+    # Generate L Matrix
+    L = np.zeros((2*len(u_meas),9))
+    iter = np.arange(len(u_meas))
 
+    for i in iter:
+      M_i_T = [X[i], Y[i], 1]
+      L[2*i] = np.asarray(M_i_T +[0]*3 + [x * -u_meas[i] for x in M_i_T])
+      L[2*i+1] = np.asarray([0]*3 + M_i_T  +[x * -v_meas[i] for x in M_i_T])
+
+    # Use SVD to find lowest singular vector - solution to min norm (Lx)
+    U, s, V = np.linalg.svd(L, full_matrices=False)
+
+    # Extract solution vector
+    smallestV = V[len(V)-1]
+
+    # Reconstruct H
+    H = np.zeros((3,3))
+    H[0] = smallestV[0:3]
+    H[1] = smallestV[3:6]
+    H[2] = smallestV[6:9]
 
     return H
 
   def getCameraIntrinsics(self, H):
 
+    V_LENGTH = 6 # Length of the V concatenated from every image
+    V_mat = np.empty((0,V_LENGTH)) # Initialize to empty matrix for concatenation
 
+    # Loop over all images
+    for i in range(H.shape[2]):
+      # Get the current H
+      H_cur = H[:,:,i]
+      # Generate V Matrix
+      V_11 = self.getVij(H_cur,1,1)
+      V_12 = self.getVij(H_cur,1,2)
+      V_22 = self.getVij(H_cur,2,2)
+      # Concatenate results onto V_mat
+      V_mat = np.vstack((V_mat,V_12,(V_11-V_22)))
+
+    # Use SVD to find lowest singular vector - solution to min norm (Vx)
+    U, s, V = np.linalg.svd(V_mat, full_matrices=False)
+
+    # Extract solution vector
+    b = V[len(V)-1]
+    # NOTE: b = (B11;B12;B22;B13;B23;B33)^T :
+    A = self.solveForIntrinsics(b)
+
+    pdb.set_trace()
+
+    return A
+
+  def getVij(self,H,i,j):
+    V_ij = np.array([H[i,0]*H[j,0] , \
+          H[i,0]*H[j,1] + H[i,1]*H[j,0], \
+          H[i,1]*H[j,1], \
+          H[i,0]*H[j,2] + H[i,2]*H[j,0], \
+          H[i,2]*H[j,1] + H[i,1]*H[j,2], \
+          H[i,2]*H[j,2]])
+
+    return V_ij
+
+  def solveForIntrinsics(self,b):
+    # NOTE: b = (B11;B12;B22;B13;B23;B33)^T :
+    B = np.zeros((4,4))
+    B[1,1] = b[0]
+    B[1,2] = b[1]
+    B[2,2] = b[2]
+    B[1,3] = b[3]
+    B[2,3] = b[4]
+    B[3,3] = b[5]
+
+    A = np.zeros((3,3))
+
+    # Solve for intrinsic parameters
+    v0 = (B[1,2]*B[1,3] - B[1,1]*B[2,3])/(B[1,1]*B[2,2] - B[1,2]**2)
+    lam = B[3,3] - (B[1,3]**2 + v0*(B[1,2]*B[1,3] - B[1,1]*B[2,3]))/B[1,1]
+    Beta = np.sqrt(lam*B[1,1]/(B[1,1]*B[2,2] - B[1,2]**2))
+    alpha = np.sqrt(lam/B[1,1])
+    gamma = -B[1,2]*alpha*Beta/lam 
+    u0 = gamma*v0/alpha - B[1,3]*alpha**2/lam
+
+    A[0,0] = alpha 
+    A[0,1] = gamma
+    A[0,2] = u0 #u01
+    A[1,1] = Beta
+    A[1,2] = v0 #
+    A[2,2] = 1
+
+    pdb.set_trace()
     return A
 
   def getExtrinsics(self, H, A):
