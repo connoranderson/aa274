@@ -235,18 +235,25 @@ class CameraCalibrator:
     X = []
     Y = []
 
+    # DEFINED FROM BOTTOM LEFT
+    # for i in range(self.n_corners_y):
+    #   line = np.multiply(self.d_square,np.arange(self.n_corners_x))
+    #   reversedLine = line[::-1]
+    #   X.append(reversedLine)
+
+    # for i in range(self.n_corners_y):
+    #   Y.append(np.multiply(i*self.d_square,np.ones(self.n_corners_x)))
+
+    # DEFINED FROM TOP LEFT
     for i in range(self.n_corners_y):
       line = np.multiply(self.d_square,np.arange(self.n_corners_x))
-      reversedLine = line[::-1]
-      X.append(reversedLine)
+      X.append(line)
 
     for i in range(self.n_corners_y):
       Y.append(np.multiply(i*self.d_square,np.ones(self.n_corners_x)))
 
     X = np.concatenate(X)
     Y = np.concatenate(Y)
-
-    # pdb.set_trace()
 
     return X, Y
 
@@ -256,16 +263,21 @@ class CameraCalibrator:
     L = np.zeros((2*len(u_meas),9))
     iter = np.arange(len(u_meas))
 
-    for i in iter:
-      M_i_T = [X[i], Y[i], 1]
-      L[2*i] = np.asarray(M_i_T +[0]*3 + [x * -u_meas[i] for x in M_i_T])
-      L[2*i+1] = np.asarray([0]*3 + M_i_T  +[x * -v_meas[i] for x in M_i_T])
+    M_i_T = np.column_stack((X,Y,np.ones((len(X)))))
+
+    u_meas_mat = np.column_stack((u_meas,u_meas,u_meas))
+    v_meas_mat = np.column_stack((v_meas,v_meas,v_meas))
+
+    FirstStack = np.column_stack((M_i_T,np.zeros((M_i_T.shape[0],3)),-np.multiply(u_meas_mat,M_i_T)))
+    SecondStack = np.column_stack((np.zeros((M_i_T.shape[0],3)),M_i_T,-np.multiply(v_meas_mat,M_i_T)))
+
+    L = np.vstack((FirstStack,SecondStack))
 
     # Use SVD to find lowest singular vector - solution to min norm (Lx)
     U, s, V = np.linalg.svd(L, full_matrices=False)
 
     # Extract solution vector
-    smallestV = V[len(V)-1]
+    smallestV = V[-1]
 
     # Reconstruct H
     H = np.zeros((3,3))
@@ -295,33 +307,39 @@ class CameraCalibrator:
     U, s, V = np.linalg.svd(V_mat, full_matrices=False)
 
     # Extract solution vector
-    b = V[len(V)-1]
+    b = V[-1]
+    
     # NOTE: b = (B11;B12;B22;B13;B23;B33)^T :
     A = self.solveForIntrinsics(b)
 
-    pdb.set_trace()
-
     return A
 
+  # Gets the Vij term of each homography matrix. i and j are in form of equation, NOT for indexes
+  # Usage:  V_11 = self.getVij(H_cur,1,1)
   def getVij(self,H,i,j):
+    # Adjust i and j to account for indexing
+    i -= 1
+    j -= 1
+
+    H = H.T
     V_ij = np.array([H[i,0]*H[j,0] , \
           H[i,0]*H[j,1] + H[i,1]*H[j,0], \
           H[i,1]*H[j,1], \
-          H[i,0]*H[j,2] + H[i,2]*H[j,0], \
+          H[i,2]*H[j,0] + H[i,0]*H[j,2], \
           H[i,2]*H[j,1] + H[i,1]*H[j,2], \
           H[i,2]*H[j,2]])
 
     return V_ij
 
-  def solveForIntrinsics(self,b):
+  def solveForIntrinsics(self,b_sol):
     # NOTE: b = (B11;B12;B22;B13;B23;B33)^T :
     B = np.zeros((4,4))
-    B[1,1] = b[0]
-    B[1,2] = b[1]
-    B[2,2] = b[2]
-    B[1,3] = b[3]
-    B[2,3] = b[4]
-    B[3,3] = b[5]
+    B[1,1] = b_sol[0]
+    B[1,2] = b_sol[1]
+    B[2,2] = b_sol[2]
+    B[1,3] = b_sol[3]
+    B[2,3] = b_sol[4]
+    B[3,3] = b_sol[5]
 
     A = np.zeros((3,3))
 
@@ -330,7 +348,7 @@ class CameraCalibrator:
     lam = B[3,3] - (B[1,3]**2 + v0*(B[1,2]*B[1,3] - B[1,1]*B[2,3]))/B[1,1]
     Beta = np.sqrt(lam*B[1,1]/(B[1,1]*B[2,2] - B[1,2]**2))
     alpha = np.sqrt(lam/B[1,1])
-    gamma = -B[1,2]*alpha*Beta/lam 
+    gamma = -B[1,2]*alpha**2*Beta/lam 
     u0 = gamma*v0/alpha - B[1,3]*alpha**2/lam
 
     A[0,0] = alpha 
@@ -340,11 +358,22 @@ class CameraCalibrator:
     A[1,2] = v0 #
     A[2,2] = 1
 
-    pdb.set_trace()
     return A
 
   def getExtrinsics(self, H, A):
+    lam = 1/np.linalg.norm(np.dot(np.linalg.inv(A),H[:,0]))
+    r1 = lam*np.dot(np.linalg.inv(A),H[:,0])
+    r2 = lam*np.dot(np.linalg.inv(A),H[:,1])
+    r3 = np.cross(r1,r2)
 
+    t = lam*np.dot(np.linalg.inv(A),H[:,2])
+
+    R = np.column_stack((r1,r2,r3))
+
+    # Use SVD to find lowest singular vector - solution to min norm (Vx)
+    U, s, V = np.linalg.svd(R, full_matrices=False)
+
+    R_best = np.dot(U,V)
 
     return R, t
 
@@ -353,11 +382,28 @@ class CameraCalibrator:
     Note: The transformation functions should only process one chessboard at a time!
     This means X, Y, Z, R, t should be individual arrays
     """
+    worldCoords = np.row_stack((X,Y,Z,np.ones((len(X)))))
+    cameraCoords = np.dot(np.column_stack((R,t)),worldCoords)
+
+    X_C = cameraCoords[0]
+    Y_C = cameraCoords[1]
+    Z_C = cameraCoords[2]
+    
+    x = X_C/Z_C
+    y = Y_C/Z_C
+
 
     return x, y
 
   def transformWorld2PixImageUndist(self, X, Y, Z, R, t, A):
 
+    worldCoords = np.row_stack((X,Y,Z,np.ones((len(X)))))
+    pixCoords = np.dot(np.dot(A,np.column_stack((R,t))),worldCoords)
+
+    pdb.set_trace()
+    
+    u = pixCoords[0]/pixCoords[2]
+    v = pixCoords[1]/pixCoords[2]
 
     return u, v
 
