@@ -293,9 +293,9 @@ class CameraCalibrator:
     V_mat = np.empty((0,V_LENGTH)) # Initialize to empty matrix for concatenation
 
     # Loop over all images
-    for i in range(H.shape[2]):
+    for i in range(self.n_chessboards):
       # Get the current H
-      H_cur = H[:,:,i]
+      H_cur = H[i]
       # Generate V Matrix
       V_11 = self.getVij(H_cur,1,1)
       V_12 = self.getVij(H_cur,1,2)
@@ -375,7 +375,9 @@ class CameraCalibrator:
 
     R_best = np.dot(U,V)
 
-    return R, t
+    # pdb.set_trace()
+
+    return R_best, t
 
   def transformWorld2NormImageUndist(self, X, Y, Z, R, t):
     """
@@ -400,7 +402,7 @@ class CameraCalibrator:
     worldCoords = np.row_stack((X,Y,Z,np.ones((len(X)))))
     pixCoords = np.dot(np.dot(A,np.column_stack((R,t))),worldCoords)
 
-    pdb.set_trace()
+    # pdb.set_trace()
     
     u = pixCoords[0]/pixCoords[2]
     v = pixCoords[1]/pixCoords[2]
@@ -408,16 +410,65 @@ class CameraCalibrator:
     return u, v
 
   def transformWorld2NormImageDist(self, X, Y, Z, R, t, k):
-    
+    x,y = self.transformWorld2NormImageUndist(X, Y, Z, R, t)
+
+    # Apply radial distortion correction
+    x_br = x+x*(k[0]*(x**2+y**2) + k[1]*(x**2+y**2)**2)
+    y_br = y+y*(k[0]*(x**2+y**2) + k[1]*(x**2+y**2)**2)
 
     return x_br, y_br
 
   def transformWorld2PixImageDist(self, X, Y, Z, R, t, A, k):
+    u,v = self.transformWorld2PixImageUndist(X, Y, Z, R, t, A)
+    x,y = self.transformWorld2NormImageUndist(X, Y, Z, R, t)
 
+    u0 = A[0,2]
+    v0 = A[1,2]
+
+    # Apply radial distortion correction
+    u_br = u+(u-u0)*(k[0]*(x**2+y**2) + k[1]*(x**2+y**2)**2)
+    v_br = v+(v-v0)*(k[0]*(x**2+y**2) + k[1]*(x**2+y**2)**2)
+
+    # pdb.set_trace()
 
     return u_br, v_br
 
-  def estimateLensDistortion(self, u_meas, v_meas, X, Y, R, t, A):
+  def estimateLensDistortion(self, u_meas, v_meas, X, Y, Z, R, t, A):
     
+    u0 = A[0,2]
+    v0 = A[1,2]
+
+    u = []
+    v = []
+    x = []
+    y = []
+
+    # loop over all images and predict u,v for each (assumed undistorted)
+    for i in range(self.n_chessboards):
+      u_cur, v_cur = self.transformWorld2PixImageUndist(X[i],Y[i],Z[i],R[i],t[i],A)
+      u.append(u_cur)
+      v.append(v_cur)
+      x_cur, y_cur = self.transformWorld2NormImageUndist(X[i],Y[i],Z[i],R[i],t[i])
+      x.append(x_cur)
+      y.append(y_cur)
+
+    u = np.concatenate(u)
+    v = np.concatenate(v)
+    x = np.concatenate(x)
+    y = np.concatenate(y)
+    u_breve = np.concatenate(u_meas)
+    v_breve = np.concatenate(v_meas)
+
+    d11 = (u-u0)*(x**2 + y**2)
+    d12 = (u-u0)*((x**2 + y**2)**2)
+    d21 = (v-v0)*(x**2 + y**2)
+    d22 = (v-v0)*((x**2 + y**2)**2)
+
+    D = np.row_stack((np.column_stack((d11,d12)),np.column_stack((d21,d22))))
+    d = np.concatenate((u_breve-u,v_breve-v))
+
+    k = np.dot(np.linalg.pinv(D),d)
+
+    pdb.set_trace()
 
     return k
