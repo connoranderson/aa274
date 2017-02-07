@@ -119,12 +119,14 @@ def SplitLinesRecursive(theta, rho, startIdx, endIdx, params):
 
   # Check whether we've found the last possible split
   if FindSplit(theta[startIdx:endIdx], rho[startIdx:endIdx], alpha, r, params) == -1:
+    # If so, return the line fit parameters for this last data set
     return alpha, r, [startIdx, endIdx]
 
   # Attempt to continue splitting the lines
   alpha_1, r_1, idx_1 = SplitLinesRecursive(theta, rho, startIdx, splitIdx, params)
   alpha_2, r_2, idx_2 = SplitLinesRecursive(theta, rho, splitIdx, endIdx, params)
 
+  # Compile the complete array results and return up stack
   alpha = np.append(np.array([alpha_1]),np.array([alpha_2]))
   r = np.append(np.array([r_1]),np.array([r_2]))
   idx = np.row_stack((idx_1,idx_2))
@@ -246,6 +248,33 @@ def MergeColinearNeigbors(theta, rho, alpha, r, pointIdx, params):
   #       points from two adjacent segments. If this line cannot be
   #       split, then accept the merge. If it can be split, do not merge.
   #################
+
+  haveMerged = True
+  alphaOut = alpha.copy()
+  rOut = r.copy()
+  pointIdxOut = pointIdx.copy()
+
+  while haveMerged:
+    haveMerged = False
+
+    # Loops backwards over line segments, merging possible sets
+    for i in range(len(pointIdxOut)-1,0,-1):
+      startIdx = pointIdxOut[i-1][0]
+      endIdx = pointIdxOut[i][1]
+      # Fit a line to the combined data set
+      alpha_combined, r_combined = FitLine(theta[startIdx:endIdx], rho[startIdx:endIdx])
+      # Index to split at is referenced from startIdx. splitIdx = FindSplit + startIdx
+      splitIdx = FindSplit(theta[startIdx:endIdx], rho[startIdx:endIdx], alpha_combined, r_combined, params)
+      # If merge is possible
+      if splitIdx == -1:
+        # Merge data sets
+        pointIdxOut[i-1,1] = pointIdxOut[i,1]
+        np.delete(pointIdxOut,i)
+        np.delete(alphaOut,i)
+        np.delete(rOut,i)
+        alphaOut[i-1] = alpha_combined
+        rOut[i-1] = r_combined
+        haveMerged = True
 
   return alphaOut, rOut, pointIdxOut
 
