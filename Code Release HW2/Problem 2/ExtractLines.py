@@ -11,6 +11,7 @@
 # Imports
 import numpy as np
 from PlotFunctions import *
+import pdb
 
 
 ############################################################
@@ -44,6 +45,8 @@ def ExtractLines(RangeData, params):
   y_r = RangeData[1]
   theta = RangeData[2]
   rho = RangeData[3]
+
+  FitLine(theta, rho)
 
   ### Split Lines ###
   N_pts = len(rho)
@@ -109,6 +112,22 @@ def SplitLinesRecursive(theta, rho, startIdx, endIdx, params):
   # It should call 'FitLine()' to fit individual line segments
   # In should call 'FindSplit()' to find an index to split at
   #################
+  alpha, r = FitLine(theta[startIdx:endIdx], rho[startIdx:endIdx])
+
+  # Index to split at is referenced from startIdx. splitIdx = FindSplit + startIdx
+  splitIdx = FindSplit(theta[startIdx:endIdx], rho[startIdx:endIdx], alpha, r, params) + startIdx
+
+  # Check whether we've found the last possible split
+  if FindSplit(theta[startIdx:endIdx], rho[startIdx:endIdx], alpha, r, params) == -1:
+    return alpha, r, [startIdx, endIdx]
+
+  # Attempt to continue splitting the lines
+  alpha_1, r_1, idx_1 = SplitLinesRecursive(theta, rho, startIdx, splitIdx, params)
+  alpha_2, r_2, idx_2 = SplitLinesRecursive(theta, rho, splitIdx, endIdx, params)
+
+  alpha = np.append(np.array([alpha_1]),np.array([alpha_2]))
+  r = np.append(np.array([r_1]),np.array([r_2]))
+  idx = np.row_stack((idx_1,idx_2))
 
   return alpha, r, idx
 
@@ -140,9 +159,24 @@ def FindSplit(theta, rho, alpha, r, params):
   # return -1 if no split is possiple
   #################
 
+  # If array is too short to possibly have a split point, just return -1
+  if len(theta) < 2*params['MIN_POINTS_PER_SEGMENT']:
+    return -1
+
+  # Get possible points to split at (at distance MIN_POINTS_PER_SEGMENT from edge of array)
+  dist = np.absolute(rho*np.cos(theta-alpha)-r)
+  dist_zeroed = dist
+  dist_zeroed[0:params['MIN_POINTS_PER_SEGMENT']] = 0
+  dist_zeroed[len(dist)-params['MIN_POINTS_PER_SEGMENT']:len(dist)]= 0
+
+  #dist[params['MIN_POINTS_PER_SEGMENT']:(len(theta)-params['MIN_POINTS_PER_SEGMENT'])]
+  splitIdx = np.argmax(dist_zeroed)
+
+  # Check if this max value satisfies the requirement of being greater than LINE_POINT_DIST_THRESHOLD
+  if dist[splitIdx] < params['LINE_POINT_DIST_THRESHOLD']:
+    return -1
+
   return splitIdx
-
-
 
 #-----------------------------------------------------------
 # FitLine
@@ -158,10 +192,30 @@ def FindSplit(theta, rho, alpha, r, params):
 
 def FitLine(theta, rho):
 
-  ##### TO DO #####
-  # Implement a function to fit a line to polar data points
-  # based on the solution to the least squares problem (see Hw)
-  #################
+  n = len(theta)
+
+  num1 = np.sum(rho**2*np.sin(2*theta)) 
+  den1 = np.sum(rho**2*np.cos(2*theta)) 
+
+  num2 = 0
+  den2 = 0
+  for i in range(n):
+    for j in range(n):
+      den2 += rho[i]*rho[j]*np.cos(theta[i]+theta[j])
+      num2 += rho[i]*rho[j]*np.cos(theta[i])*np.sin(theta[j])
+  den2 = -den2/n
+  num2 = -num2*2/n
+
+  alpha = 0.5*np.arctan2((num1+num2),(den1+den2)) + np.pi/2
+  r = np.mean(rho*np.cos(theta-alpha))
+
+  # If r is <0, make line equation have positive r and be sure to offset alpha by pi
+  if r<0:
+    r = -r
+    alpha = alpha+np.pi 
+    # Wrap alpha to -pi < alpha < pi
+    if alpha>np.pi:
+      alpha = alpha - 2*np.pi
 
   return alpha, r
 
