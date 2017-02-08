@@ -105,15 +105,18 @@ def ExtractLines(RangeData, params):
 #             r - (1D) np array of 'r' for each fitted line (m)
 #           idx - (N_lines,2) segment's first and last point index
 
-def SplitLinesRecursive(theta, rho, startIdx, endIdx, params):
-
   ##### TO DO #####
   # Implement a recursive line splitting function
   # It should call 'FitLine()' to fit individual line segments
   # In should call 'FindSplit()' to find an index to split at
   #################
+
+def SplitLinesRecursive(theta, rho, startIdx, endIdx, params):
+
+  # Fit a line to the current set of points
   alpha, r = FitLine(theta[startIdx:endIdx], rho[startIdx:endIdx])
 
+  # Attempt to find a split inbetween the data set
   # Index to split at is referenced from startIdx. splitIdx = FindSplit + startIdx
   splitIdx = FindSplit(theta[startIdx:endIdx], rho[startIdx:endIdx], alpha, r, params) + startIdx
 
@@ -121,6 +124,13 @@ def SplitLinesRecursive(theta, rho, startIdx, endIdx, params):
   if FindSplit(theta[startIdx:endIdx], rho[startIdx:endIdx], alpha, r, params) == -1:
     # If so, return the line fit parameters for this last data set
     return alpha, r, [startIdx, endIdx]
+
+  # print startIdx
+  # print splitIdx
+  # print endIdx
+
+  # if splitIdx == 148:
+  #   pdb.set_trace()
 
   # Attempt to continue splitting the lines
   alpha_1, r_1, idx_1 = SplitLinesRecursive(theta, rho, startIdx, splitIdx, params)
@@ -150,8 +160,6 @@ def SplitLinesRecursive(theta, rho, startIdx, endIdx, params):
 # OUTPUT: SplitIdx - idx at which to split line (return -1 if
 #                    it cannot be split)
 
-def FindSplit(theta, rho, alpha, r, params):
-
   ##### TO DO #####
   # Implement a function to find the split index (if one exists)
   # It should compute the distance of each point to the line.
@@ -161,21 +169,22 @@ def FindSplit(theta, rho, alpha, r, params):
   # return -1 if no split is possiple
   #################
 
+def FindSplit(theta, rho, alpha, r, params):
+
   # If array is too short to possibly have a split point, just return -1
-  if len(theta) < 2*params['MIN_POINTS_PER_SEGMENT']:
+  if len(theta) <= 2*params['MIN_POINTS_PER_SEGMENT']:
     return -1
 
   # Get possible points to split at (at distance MIN_POINTS_PER_SEGMENT from edge of array)
-  dist = np.absolute(rho*np.cos(theta-alpha)-r)
-  dist_zeroed = dist
+  dist_zeroed = np.absolute(rho*np.cos(theta-alpha)-r) # Distance array from each point to the line
   dist_zeroed[0:params['MIN_POINTS_PER_SEGMENT']] = 0
-  dist_zeroed[len(dist)-params['MIN_POINTS_PER_SEGMENT']:len(dist)]= 0
+  dist_zeroed[len(dist_zeroed)-params['MIN_POINTS_PER_SEGMENT']:len(dist_zeroed)]= 0
 
   #dist[params['MIN_POINTS_PER_SEGMENT']:(len(theta)-params['MIN_POINTS_PER_SEGMENT'])]
   splitIdx = np.argmax(dist_zeroed)
 
   # Check if this max value satisfies the requirement of being greater than LINE_POINT_DIST_THRESHOLD
-  if dist[splitIdx] < params['LINE_POINT_DIST_THRESHOLD']:
+  if dist_zeroed[splitIdx] < params['LINE_POINT_DIST_THRESHOLD']:
     return -1
 
   return splitIdx
@@ -201,6 +210,7 @@ def FitLine(theta, rho):
 
   num2 = 0
   den2 = 0
+
   for i in range(n):
     for j in range(n):
       den2 += rho[i]*rho[j]*np.cos(theta[i]+theta[j])
@@ -240,14 +250,14 @@ def FitLine(theta, rho):
 #             rOut - output 'r' of merged lines (m)
 #      pointIdxOut - output start and end indices of merged line segments
 
-def MergeColinearNeigbors(theta, rho, alpha, r, pointIdx, params):
-
   ##### TO DO #####
   # Implement a function to merge colinear neighboring line segments
   # HINT: loop through line segments and try to fit a line to data
   #       points from two adjacent segments. If this line cannot be
   #       split, then accept the merge. If it can be split, do not merge.
   #################
+
+def MergeColinearNeigbors(theta, rho, alpha, r, pointIdx, params):
 
   haveMerged = True
   alphaOut = alpha.copy()
@@ -265,20 +275,21 @@ def MergeColinearNeigbors(theta, rho, alpha, r, pointIdx, params):
       alpha_combined, r_combined = FitLine(theta[startIdx:endIdx], rho[startIdx:endIdx])
       # Index to split at is referenced from startIdx. splitIdx = FindSplit + startIdx
       splitIdx = FindSplit(theta[startIdx:endIdx], rho[startIdx:endIdx], alpha_combined, r_combined, params)
-      # If merge is possible
+      # If merge is possible (ie if combined lines cannot be split)
       if splitIdx == -1:
         # Merge data sets
+        # pdb.set_trace()
         pointIdxOut[i-1,1] = pointIdxOut[i,1]
-        np.delete(pointIdxOut,i)
-        np.delete(alphaOut,i)
-        np.delete(rOut,i)
+        pointIdxOut = np.delete(pointIdxOut,(i),axis=0)
+        alphaOut = np.delete(alphaOut,i)
+        rOut = np.delete(rOut,i)
         alphaOut[i-1] = alpha_combined
         rOut[i-1] = r_combined
         haveMerged = True
 
+
+
   return alphaOut, rOut, pointIdxOut
-
-
 
 #----------------------------------
 # ImportRangeData
@@ -292,8 +303,6 @@ def ImportRangeData(filename):
   return (x_r, y_r, theta, rho)
 #----------------------------------
 
-
-
 ############################################################
 # Main
 ############################################################
@@ -301,16 +310,16 @@ def main():
   # parameters for line extraction (feel free to adjust these)
   MIN_SEG_LENGTH = 0.05; # minimum length of each line segment (m)
   LINE_POINT_DIST_THRESHOLD = 0.02; # max distance of pt from line to split
-  MIN_POINTS_PER_SEGMENT = 4; # minimum number of points per line segment
+  MIN_POINTS_PER_SEGMENT = 3; # minimum number of points per line segment
 
   # Data files are formated as 'rangeData_<x_r>_<y_r>_N_pts.csv
   # where x_r is the robot's x position
   #       y_r is the robot's y position
   #       N_pts is the number of beams (e.g. 180 -> beams are 2deg apart)
 
-  filename = 'rangeData_5_5_180.csv'
-  #filename = 'rangeData_4_9_360.csv'
-  #filename = 'rangeData_7_2_90.csv'
+  # filename = 'rangeData_5_5_180.csv'
+  # filename = 'rangeData_4_9_360.csv'
+  filename = 'rangeData_7_2_90.csv'
 
   #Import Range Data
   RangeData = ImportRangeData(filename)
@@ -320,6 +329,8 @@ def main():
             'MIN_POINTS_PER_SEGMENT': MIN_POINTS_PER_SEGMENT}
 
   alpha, r, segend, pointIdx = ExtractLines(RangeData, params)
+
+  print pointIdx
 
   ax = PlotScene()
   ax = PlotData(RangeData, ax)
