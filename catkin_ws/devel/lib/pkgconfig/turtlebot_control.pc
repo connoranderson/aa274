@@ -1,0 +1,8 @@
+prefix=/home/aa274/catkin_ws/devel
+
+Name: turtlebot_control
+Description: Description of turtlebot_control
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/aa274/catkin_ws/devel/lib 
+Requires: 

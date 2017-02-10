@@ -1,0 +1,2 @@
+apriltags_ros/apriltags:apriltags_ros/apriltags_ros:asl_turtlebot:turtlebot_control
+-DCATKIN_DEVEL_PREFIX=/home/aa274/catkin_ws/devel -DCMAKE_INSTALL_PREFIX=/home/aa274/catkin_ws/install -G Unix Makefiles

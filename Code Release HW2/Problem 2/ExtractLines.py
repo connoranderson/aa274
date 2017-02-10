@@ -54,6 +54,8 @@ def ExtractLines(RangeData, params):
   endIdx = N_pts
   alpha, r, pointIdx = SplitLinesRecursive(theta, rho, startIdx, endIdx, params)
 
+  # pdb.set_trace()
+
   ### Merge Lines ###
   alpha, r, pointIdx = MergeColinearNeigbors(theta, rho, alpha, r, pointIdx, params)
   N_lines = alpha.shape[0]
@@ -124,13 +126,6 @@ def SplitLinesRecursive(theta, rho, startIdx, endIdx, params):
   if FindSplit(theta[startIdx:endIdx], rho[startIdx:endIdx], alpha, r, params) == -1:
     # If so, return the line fit parameters for this last data set
     return alpha, r, [startIdx, endIdx]
-
-  # print startIdx
-  # print splitIdx
-  # print endIdx
-
-  # if splitIdx == 148:
-  #   pdb.set_trace()
 
   # Attempt to continue splitting the lines
   alpha_1, r_1, idx_1 = SplitLinesRecursive(theta, rho, startIdx, splitIdx, params)
@@ -310,7 +305,7 @@ def main():
   # parameters for line extraction (feel free to adjust these)
   MIN_SEG_LENGTH = 0.05; # minimum length of each line segment (m)
   LINE_POINT_DIST_THRESHOLD = 0.02; # max distance of pt from line to split
-  MIN_POINTS_PER_SEGMENT = 3; # minimum number of points per line segment
+  MIN_POINTS_PER_SEGMENT = 4; # minimum number of points per line segment
 
   # Data files are formated as 'rangeData_<x_r>_<y_r>_N_pts.csv
   # where x_r is the robot's x position

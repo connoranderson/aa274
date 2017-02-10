@@ -1,0 +1,8 @@
+prefix=/home/aa274/catkin_ws/devel
+
+Name: apriltags_ros
+Description: Description of apriltags_ros
+Version: 0.1.2
+Cflags: -I/home/aa274/catkin_ws/devel/include -I/home/aa274/catkin_ws/src/apriltags_ros/apriltags_ros/include -I/usr/include/eigen3
+Libs: -L/home/aa274/catkin_ws/devel/lib -lapriltag_detector
+Requires: apriltags image_transport roscpp sensor_msgs geometry_msgs tf cv_bridge message_runtime nodelet std_msgs

@@ -1,0 +1,8 @@
+prefix=/home/aa274/catkin_ws/devel
+
+Name: example
+Description: Description of example
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/aa274/catkin_ws/devel/lib 
+Requires: 

@@ -1,0 +1,8 @@
+prefix=/home/aa274/catkin_ws/install
+
+Name: asl_turtlebot
+Description: Description of asl_turtlebot
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/aa274/catkin_ws/install/lib 
+Requires: 
