@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 import tensorflow as tf
 from utils import *
+import pdb
 
 GRAPH = 'retrained_graph.pb'
 with open('labels.txt', 'r') as f:
@@ -10,17 +11,44 @@ with open('labels.txt', 'r') as f:
 def compute_brute_force_classification(image_path, nH=8, nW=8):
     raw_image = decode_jpeg(image_path)    # H x W x 3 numpy array (3 for each RGB color channel)
 
-    #### EDIT THIS CODE
+    window_predictions = np.zeros((nW,nH,2)) # Preallocated matrix for storing predictions
 
-    with tf.Session() as sess:
-        window = raw_image    # the "window" here is the whole image
-        window_prediction = classify_image(window, sess)
+    # Create padded version of image
+    padding = 15 # pixels
 
-    # setting each window prediction to be the prediction for the whole image (just for something to plot)
-    # do not turn this code in and claim that "your window padding is infinite"
-    window_predictions = np.array([[window_prediction for c in range(nW)] for r in range(nH)])
+    # Extract dimensions of orig image and pad with zeros around edge
+    height = raw_image.shape[0]
+    width = raw_image.shape[1]
+    rgb = raw_image.shape[2]
 
-    ####
+    paddedImage = raw_image.copy()
+    npad = ((padding, padding), (padding, padding), (0,0)) # npad is a tuple of (n_before, n_after) for each dimension
+    paddedImage = np.lib.pad(paddedImage,pad_width=npad, mode='constant', constant_values=0)
+
+    # Coordinates for each window's upper left coordinate (after padding)
+    segmentLength_x = width/nW
+    segmentLength_y = height/nH
+    xCoords = np.arange(nW)*segmentLength_x + padding
+    yCoords = np.arange(nH)*segmentLength_y + padding
+
+    # Cast to integers just in case points weren't evenly dividable
+    xCoords = xCoords.astype(int)
+    yCoords = yCoords.astype(int)
+    
+    # Loop over all windows
+    for i in range(nW):
+        for j in range(nH):
+            x_cur = xCoords[i]
+            y_cur = yCoords[j]
+
+            startX = x_cur - padding
+            startY = y_cur - padding
+            endX = x_cur+segmentLength_x + padding
+            endY = y_cur+segmentLength_y + padding
+
+            with tf.Session() as sess:
+                window = raw_image[startY:endY,startX:endX,:]
+                window_predictions[i,j] = np.array(classify_image(window, sess))
 
     return window_predictions
 
@@ -52,6 +80,10 @@ def compute_and_plot_saliency(image):
     #### EDIT THIS CODE
     
     M = np.zeros(raw_gradients.shape[0:2])  # something of the right shape to plot
+
+    for i in range(raw_gradients.shape[0]):
+        for j in range(raw_gradients.shape[1]):
+            M[i,j] = max(raw_gradients[i,j,:])
 
     ####
 
