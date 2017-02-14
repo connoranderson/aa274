@@ -46,8 +46,6 @@ def ExtractLines(RangeData, params):
   theta = RangeData[2]
   rho = RangeData[3]
 
-  FitLine(theta, rho)
-
   ### Split Lines ###
   N_pts = len(rho)
   startIdx = 0;
@@ -76,7 +74,8 @@ def ExtractLines(RangeData, params):
   ### Filter Lines ###
   #Find and remove line segments that are too short
   goodSegIdx = np.where((seglen >= params['MIN_SEG_LENGTH']) &
-  (pointIdx[:,1] - pointIdx[:,0] >= params['MIN_POINTS_PER_SEGMENT']))[0]
+  (pointIdx[:,1] - pointIdx[:,0] >= params['MIN_POINTS_PER_SEGMENT']) &
+  (seglen <= params['MAX_SEG_LENGTH']))[0]
   pointIdx = pointIdx[goodSegIdx, :]
   alpha = alpha[goodSegIdx]
   r = r[goodSegIdx]
@@ -200,8 +199,8 @@ def FitLine(theta, rho):
 
   n = len(theta)
 
-  num1 = np.sum(rho**2*np.sin(2*theta)) 
-  den1 = np.sum(rho**2*np.cos(2*theta)) 
+  num1 = np.sum((rho**2)*np.sin(2*theta)) 
+  den1 = np.sum((rho**2)*np.cos(2*theta)) 
 
   num2 = 0
   den2 = 0
@@ -214,15 +213,16 @@ def FitLine(theta, rho):
   num2 = -num2*2/n
 
   alpha = 0.5*np.arctan2((num1+num2),(den1+den2)) + np.pi/2
+  # alpha = 0.5*np.arctan((num1+num2)/(den1+den2)) + np.pi/2
   r = np.mean(rho*np.cos(theta-alpha))
 
-  # If r is <0, make line equation have positive r and be sure to offset alpha by pi
-  if r<0:
-    r = -r
-    alpha = alpha+np.pi 
-    # Wrap alpha to -pi < alpha < pi
-    if alpha>np.pi:
-      alpha = alpha - 2*np.pi
+  # # If r is <0, make line equation have positive r and be sure to offset alpha by pi
+  # if r<0:
+  #   r = -r
+  #   alpha = alpha+np.pi 
+  #   # Wrap alpha to -pi < alpha < pi
+  #   if alpha>np.pi:
+  #     alpha = alpha - 2*np.pi
 
   return alpha, r
 
@@ -282,8 +282,6 @@ def MergeColinearNeigbors(theta, rho, alpha, r, pointIdx, params):
         rOut[i-1] = r_combined
         haveMerged = True
 
-
-
   return alphaOut, rOut, pointIdxOut
 
 #----------------------------------
@@ -304,8 +302,9 @@ def ImportRangeData(filename):
 def main():
   # parameters for line extraction (feel free to adjust these)
   MIN_SEG_LENGTH = 0.05; # minimum length of each line segment (m)
-  LINE_POINT_DIST_THRESHOLD = 0.02; # max distance of pt from line to split
-  MIN_POINTS_PER_SEGMENT = 4; # minimum number of points per line segment
+  LINE_POINT_DIST_THRESHOLD = 0.015; # max distance of pt from line to split
+  MIN_POINTS_PER_SEGMENT = 3; # minimum number of points per line segment
+  MAX_SEG_LENGTH = 20; # max length of a line segment
 
   # Data files are formated as 'rangeData_<x_r>_<y_r>_N_pts.csv
   # where x_r is the robot's x position
@@ -321,11 +320,16 @@ def main():
 
   params = {'MIN_SEG_LENGTH': MIN_SEG_LENGTH,
             'LINE_POINT_DIST_THRESHOLD': LINE_POINT_DIST_THRESHOLD,
-            'MIN_POINTS_PER_SEGMENT': MIN_POINTS_PER_SEGMENT}
+            'MIN_POINTS_PER_SEGMENT': MIN_POINTS_PER_SEGMENT,
+            'MAX_SEG_LENGTH': MAX_SEG_LENGTH}
 
   alpha, r, segend, pointIdx = ExtractLines(RangeData, params)
 
-  print pointIdx
+  # print alpha
+  # print r 
+  # print segend
+  print len(pointIdx)
+
 
   ax = PlotScene()
   ax = PlotData(RangeData, ax)
@@ -333,6 +337,9 @@ def main():
   ax = PlotLines(segend, ax)
 
   plt.show(ax)
+
+
+
 
 ############################################################
 

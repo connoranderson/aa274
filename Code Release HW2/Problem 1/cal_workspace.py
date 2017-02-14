@@ -55,30 +55,22 @@ def main():
     Y_full[i] = Y
     Z_full[i] = Z
 
-  # u,v = cc.transformWorld2PixImageUndist(X, Y, Z, R_full[0], t_full[0], A)
+  # Plot measurements vs estimated corner locations
+  cc.plotBoardPixImages(u_meas, v_meas, X_full, Y_full, R_full, t_full, A)
 
+  # View orientations of all chess boards calculated from measured values
+  cc.plotBoardLocations(X_full, Y_full, R_full, t_full)
 
-  # plt.figure()
-  # plt.grid('on')
-  # plt.plot(u,v,'go',markerfacecolor='green',markersize=5)
-  # plt.plot(u_meas[0],v_meas[0],'go',markerfacecolor='red',markersize=5)
-  # plt.ylabel('V')
-  # plt.axis('equal')
-  # plt.show()
-
-  # pdb.set_trace()
-
-
-  # cc.plotBoardPixImages(u_meas, v_meas, X_full, Y_full, R_full, t_full, A)
-
-  # cc.plotBoardLocations(X_full, Y_full, R_full, t_full)
-
+  # Correct for radial distortion bias
   k = cc.estimateLensDistortion(u_meas, v_meas, X_full, Y_full, Z_full, R_full, t_full, A)
 
-  # cc.plotBoardPixImages(u_meas, v_meas, X_full, Y_full, R_full, t_full, A, k)
+  # Plot images correcting for distortion
+  cc.plotBoardPixImages(u_meas, v_meas, X_full, Y_full, R_full, t_full, A, k)
 
-
+  # Undistort images to remove radial bias
   cc.undistortImages(A,k)
+
+  cc.writeCalibrationYaml(A, k)
 
 
 if __name__ == '__main__':

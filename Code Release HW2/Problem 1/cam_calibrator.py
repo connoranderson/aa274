@@ -314,6 +314,7 @@ class CameraCalibrator:
 
     return A
 
+  # Helper function for getCameraIntrinsics()
   # Gets the Vij term of each homography matrix. i and j are in form of equation, NOT for indexes
   # Usage:  V_11 = self.getVij(H_cur,1,1)
   def getVij(self,H,i,j):
@@ -331,6 +332,7 @@ class CameraCalibrator:
 
     return V_ij
 
+  # Helper function for getCameraIntrinsics()
   def solveForIntrinsics(self,b_sol):
     # NOTE: b = (B11;B12;B22;B13;B23;B33)^T :
     B = np.zeros((4,4))
@@ -375,8 +377,6 @@ class CameraCalibrator:
 
     R_best = np.dot(U,V)
 
-    # pdb.set_trace()
-
     return R_best, t
 
   def transformWorld2NormImageUndist(self, X, Y, Z, R, t):
@@ -401,9 +401,8 @@ class CameraCalibrator:
 
     worldCoords = np.row_stack((X,Y,Z,np.ones((len(X)))))
     pixCoords = np.dot(np.dot(A,np.column_stack((R,t))),worldCoords)
-
-    # pdb.set_trace()
     
+    # Convert back to homogenous coordinates
     u = pixCoords[0]/pixCoords[2]
     v = pixCoords[1]/pixCoords[2]
 
@@ -428,8 +427,6 @@ class CameraCalibrator:
     # Apply radial distortion correction
     u_br = u+(u-u0)*(k[0]*(x**2+y**2) + k[1]*(x**2+y**2)**2)
     v_br = v+(v-v0)*(k[0]*(x**2+y**2) + k[1]*(x**2+y**2)**2)
-
-    # pdb.set_trace()
 
     return u_br, v_br
 
@@ -459,6 +456,7 @@ class CameraCalibrator:
     u_breve = np.concatenate(u_meas)
     v_breve = np.concatenate(v_meas)
 
+    # Form D-matrix
     d11 = (u-u0)*(x**2 + y**2)
     d12 = (u-u0)*((x**2 + y**2)**2)
     d21 = (v-v0)*(x**2 + y**2)
@@ -468,7 +466,5 @@ class CameraCalibrator:
     d = np.concatenate((u_breve-u,v_breve-v))
 
     k = np.dot(np.linalg.pinv(D),d)
-
-    pdb.set_trace()
 
     return k
