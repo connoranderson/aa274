@@ -4,6 +4,8 @@ import scipy.linalg    # you may find scipy.linalg.block_diag useful
 from ExtractLines import ExtractLines, normalize_line_parameters, angle_difference
 from maze_sim_parameters import LineExtractionParams, NoiseParams, MapParams
 
+import pdb
+
 class EKF(object):
 
     def __init__(self, x0, P0, Q):
@@ -22,6 +24,10 @@ class EKF(object):
         #### TODO ####
         # update self.x, self.P
         ##############
+
+        self.x = g
+        self.P = Gx.dot(self.P).dot(Gx.T) + dt*Gu.dot(self.Q).dot(Gu.T)
+
 
     # Propagates exact (nonlinear) state dynamics; also returns associated Jacobians for EKF linearization
     # INPUT:  (u, dt)
@@ -78,10 +84,30 @@ class Localization_EKF(EKF):
         # compute g, Gx, Gu
         ##############
 
+        # g = np.copy(self.x)
+        # Gx = np.eye(self.x.size)
+        # Gu = np.zeros((self.x.size, 2))
 
+        th_t = om*dt + th
 
+        # ASK TA's WHY THIS IS A WORSE MODEL
+        # x_t = v*(np.cos(th_t) - np.cos(th)) + x
+        # y_t = v*(np.sin(th_t) - np.sin(th)) + y
+
+        x_t = v*np.cos(th)*dt + x
+        y_t = v*np.sin(th)*dt + y
+
+        g = np.array([x_t, y_t, th_t])
+
+        Gx = np.eye(self.x.size)
+        Gu = np.zeros((self.x.size, 2))
+
+        Gx[:,2] = [-v*np.sin(th)*dt, v*np.cos(th)*dt, 1]
 
         
+        Gu[0,:] = [np.cos(th)*dt, 0]
+        Gu[1,:] = [np.sin(th)*dt, 0]
+        Gu[2,:] = [0,dt]
 
         return g, Gx, Gu
 
@@ -152,9 +178,9 @@ class SLAM_EKF(EKF):
 
         #### TODO ####
         # compute g, Gx, Gu (some shape hints below)
-        # g = np.copy(self.x)
-        # Gx = np.eye(self.x.size)
-        # Gu = np.zeros((self.x.size, 2))
+        g = np.copy(self.x)
+        Gx = np.eye(self.x.size)
+        Gu = np.zeros((self.x.size, 2))
         ##############
 
         return g, Gx, Gu
