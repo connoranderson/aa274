@@ -150,16 +150,22 @@ class Localization_EKF(EKF):
         ##############
 
         alpha_cam = alpha - theta_cam - theta
-        r_hat = np.array([r*np.cos(alpha), r*np.sin(alpha)])
-        r_hat = r_hat/np.linalg.norm(r_hat) # Create unit vector pointing in direction of r
-
+ 
+        # rotation matrix of robot from world frame 
         R_cam = np.matrix([[np.cos(theta), -np.sin(theta), 0],  
                         [np.sin(theta), np.cos(theta), 0],
-                         [0, 0, 1]]) # rotation matrix of robot from world frame 
+                         [0, 0, 1]]) 
+        # rotation matrix of line from world frame
+        R_line = np.matrix([[np.cos(-alpha), -np.sin(-alpha)],  
+                        [np.sin(-alpha), np.cos(-alpha)]])
+
+        # Find camera coordinates in robot frame
         cam_world_coords = np.squeeze(np.asarray(np.dot(R_cam,self.tf_base_to_camera))) # (x_cam_w, y_cam_w, theta_cam_w)
+        # Offset for camera coords in world frame
         cam_w = np.array([x + cam_world_coords[0], y + cam_world_coords[1]])
-        r_proj = r_hat*cam_w
-        r_cam = r - np.linalg.norm(r_proj)
+
+        r_proj = np.squeeze(np.asarray(np.dot(R_line,cam_w)))
+        r_cam = r - r_proj[0]
 
         # Store results in h array
         h = np.array([alpha_cam, r_cam])
