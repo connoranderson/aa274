@@ -145,7 +145,6 @@ class Localization_EKF(EKF):
         x, y, theta = self.x
         xcam, ycam, theta_cam = self.tf_base_to_camera # (x, y, theta) transform from the robot base to the camera frame
 
-
         #### TODO ####
         # compute h, Hx
         ##############
@@ -168,9 +167,9 @@ class Localization_EKF(EKF):
         # Create and populate Hx matrix
         Hx = np.zeros((2,3))
         Hx[0,2] = -1
-        Hx[1,0] = -r*np.cos(alpha)
-        Hx[1,1] = -r*np.sin(alpha)
-        Hx[1,2] = r*np.cos(alpha)*xcam*np.sin(theta) - r*np.sin(alpha)*ycam*np.cos(theta)
+        Hx[1,0] = -np.cos(alpha)
+        Hx[1,1] = -np.sin(alpha)
+        Hx[1,2] = -(np.cos(alpha)*(-np.sin(theta)*xcam - np.cos(theta)*ycam) + np.sin(alpha)*(np.cos(theta)*xcam - np.sin(theta)*ycam))
 
         flipped, h = normalize_line_parameters(h)
         if flipped:
