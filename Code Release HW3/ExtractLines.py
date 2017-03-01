@@ -36,6 +36,11 @@ import numpy as np
 def ExtractLines(theta, rho, params, var_theta = None, var_rho = None):
 
     nan_idxs = np.isnan(rho)
+    if all(nan_idxs):
+        if var_theta is not None and var_rho is not None:
+            return np.array([]), np.array([]), [], np.zeros((0,4)), np.array([])
+        else:
+            return np.array([]), np.array([]), np.zeros((0,4)), np.array([])
     theta = theta[~nan_idxs]
     rho = rho[~nan_idxs]
 
