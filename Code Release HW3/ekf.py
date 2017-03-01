@@ -142,7 +142,7 @@ class Localization_EKF(EKF):
         alpha, r = m
 
         # Use mean expected position to compute line location
-        x, y, th = self.x
+        x, y, theta = self.x
         xcam, ycam, theta_cam = self.tf_base_to_camera # (x, y, theta) transform from the robot base to the camera frame
 
 
@@ -150,16 +150,27 @@ class Localization_EKF(EKF):
         # compute h, Hx
         ##############
 
-        # alpha_cam = alpha - theta_cam - theta
-        # r_hat = np.array([r*np.cos(alpha), r*np.sin(alpha)])
-        # cam_w = np.array([x + xcam*np.cos(theta_cam), y + ycam*np.sin(theta_cam)])
-        # r_proj = r_hat*cam_w
-        # r_cam = r - r_proj
+        alpha_cam = alpha - theta_cam - theta
+        r_hat = np.array([r*np.cos(alpha), r*np.sin(alpha)])
+        r_hat = r_hat/np.linalg.norm(r_hat) # Create unit vector pointing in direction of r
 
+        R_cam = np.matrix([[np.cos(theta), -np.sin(theta), 0],  
+                        [np.sin(theta), np.cos(theta), 0],
+                         [0, 0, 1]]) # rotation matrix of robot from world frame 
+        cam_world_coords = np.squeeze(np.asarray(np.dot(R_cam,self.tf_base_to_camera))) # (x_cam_w, y_cam_w, theta_cam_w)
+        cam_w = np.array([x + cam_world_coords[0], y + cam_world_coords[1]])
+        r_proj = r_hat*cam_w
+        r_cam = r - np.linalg.norm(r_proj)
 
+        # Store results in h array
+        h = np.array([alpha_cam, r_cam])
 
-
-
+        # Create and populate Hx matrix
+        Hx = np.zeros((2,3))
+        Hx[0,2] = -1
+        Hx[1,0] = -r*np.cos(alpha)
+        Hx[1,1] = -r*np.sin(alpha)
+        Hx[1,2] = r*np.cos(alpha)*xcam*np.sin(theta) - r*np.sin(alpha)*ycam*np.cos(theta)
 
         flipped, h = normalize_line_parameters(h)
         if flipped:
