@@ -206,12 +206,12 @@ def validate_SLAM_EKF(fname = "validation_run.p"):
 if __name__ == '__main__':
     ### PROBLEM 1
     # validate_localization_transition_update()
-    # validate_localization_EKF()
+    validate_localization_EKF()
 
     ## Subcomponent validation
     # validate_localization_transition_model()
     # validate_localization_map_line_to_predicted_measurement()
-    validate_localization_associate_measurements()
+    # validate_localization_associate_measurements()
 
     ### PROBLEM 2
 

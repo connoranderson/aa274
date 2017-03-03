@@ -59,8 +59,8 @@ class EKF(object):
         ##############
 
         Sigma = H.dot(self.P).dot(H.T) + R
-        K = P.dot(H.t).dot(np.linalg.inv(Sigma))
-        self.x = self.x + K.dot(z)
+        K = self.P.dot(H.T).dot(np.linalg.inv(Sigma))
+        self.x = self.x + K.dot(z).reshape(3,)
         self.P = self.P - K.dot(Sigma).dot(K.T)
 
     # Converts raw measurement into the relevant Gaussian form (e.g., a dimensionality reduction);
