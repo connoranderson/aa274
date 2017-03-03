@@ -87,22 +87,10 @@ class Localization_EKF(EKF):
         Gx = np.eye(self.x.size)
         Gu = np.zeros((self.x.size, 2))
 
-        # OVERLY-SIMPLE MODEL
-        # th_t = om*dt + th
-        # x_t = v*np.cos(th)*dt + x
-        # y_t = v*np.sin(th)*dt + y
-        # g = np.array([x_t, y_t, th_t])
-        # Gx = np.eye(self.x.size)
-        # Gu = np.zeros((self.x.size, 2))
-        # Gx[:,2] = [-v*np.sin(th)*dt, v*np.cos(th)*dt, 1]        
-        # Gu[0,:] = [np.cos(th)*dt, 0]
-        # Gu[1,:] = [np.sin(th)*dt, 0]
-        # Gu[2,:] = [0,dt]
-
         # More Accurate Model
         DIVIDE_BY_ZERO_THRESHOLD = 10**(-15)
 
-        if om >= DIVIDE_BY_ZERO_THRESHOLD:
+        if np.absolute(om) >= DIVIDE_BY_ZERO_THRESHOLD:
             th_t = om*dt + th
             x_t = (v/om)*(np.sin(om*dt + th) - np.sin(th)) + x
             y_t = (-v/om)*(np.cos(om*dt + th) - np.cos(th)) + y
@@ -151,11 +139,11 @@ class Localization_EKF(EKF):
 
         alpha_cam = alpha - theta_cam - theta
  
-        # rotation matrix of robot from world frame 
+        # rotation matrix from robot reference frame to world frame
         R_cam = np.matrix([[np.cos(theta), -np.sin(theta), 0],  
                         [np.sin(theta), np.cos(theta), 0],
                          [0, 0, 1]]) 
-        # rotation matrix of line from world frame
+        # rotation matrix to line reference frame from world frame
         R_line = np.matrix([[np.cos(-alpha), -np.sin(-alpha)],  
                         [np.sin(-alpha), np.cos(-alpha)]])
 
@@ -197,6 +185,23 @@ class Localization_EKF(EKF):
         #### TODO ####
         # compute v_list, R_list, H_list
         ##############
+
+        x = 0
+
+        # TODO For ALL
+
+        # I = rawZ.size
+
+        # # Compute H for each map line 
+        # h, Hx = self.map_line_to_predicted_measurement(self.map_lines(0:))
+        # # Compute Mahalanobis distance
+        # v_ij = rawZ(0:) - h
+        # S_ij = np.dot(Hx,self.P,Hx.T) + rawR[0]
+        # d_ij = np.dot(v_ij.T,np.linalg.inv(S_ij),v_ij) # Mahalanobis distance
+
+        v_list = 0
+        R_list = 0
+        H_list = 0
 
         return v_list, R_list, H_list
 
