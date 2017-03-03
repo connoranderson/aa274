@@ -82,7 +82,7 @@ def validate_localization_transition_model(fname = "validation_run.p"):
         timestamp, control = tc
         g, Gx, Gu = EKF.transition_model(control, .1)
         g_ref, Gx_ref, Gu_ref = validation_run["transition_model_validation"][i]
-        if norm(g - g_ref) + norm(Gx - Gx_ref) + norm(Gu - Gu_ref) > 1e-6:
+        if norm(g - g_ref) + norm(Gx - Gx_ref) + norm(Gu - Gu_ref) > 1e-2:
             print "At state x = {0} with u = {1} and dt = {2} got Localization_EKF.transition_model output:\n".format(EKF.x, control, .1)
             print g
             print Gx
@@ -105,7 +105,7 @@ def validate_localization_map_line_to_predicted_measurement(fname = "validation_
     for j in range(EKF.map_lines.shape[1]):
         h, Hx = EKF.map_line_to_predicted_measurement(EKF.map_lines[:,j])
         h_ref, Hx_ref = validation_run["map_line_to_predicted_measurement_validation"][j]
-        if norm(h - h_ref) + norm(Hx - Hx_ref) > 1e-6:
+        if norm(h - h_ref) + norm(Hx - Hx_ref) > 1e-3:
             print "At state x = {0} with m = {1} got Localization_EKF.map_line_to_predicted_measurement_validation output:\n".format(EKF.x, EKF.map_lines[:,j])
             print h
             print Hx
@@ -126,37 +126,26 @@ def validate_localization_associate_measurements(fname = "validation_run.p"):
 
     EKF = Localization_EKF(validation_run["states"][0][1], NoiseParams["P0"], NoiseParams["Q"],
                            MapParams, validation_run["tf_base_to_camera"], NoiseParams["g"])
-    scan_idx = 0
-    for i in range(len(validation_run["controls"]) - 1):
-        u = validation_run["controls"][i][1]
-        t1 = validation_run["controls"][i+1][0]
-        t0 = validation_run["controls"][i][0]
-        while scan_idx < len(validation_run["scans"]) and validation_run["scans"][scan_idx][0] < t1:
-            EKF.transition_update(u, validation_run["scans"][scan_idx][0] - t0)
-            t0 = validation_run["scans"][scan_idx][0]
-            alpha, r, C_AR, _, _ = ExtractLines(validation_run["scans"][scan_idx][1],
-                                                validation_run["scans"][scan_idx][2],
-                                                LineExtractionParams,
-                                                NoiseParams["var_theta"],
-                                                NoiseParams["var_rho"])
-            Z = np.vstack((alpha, r))
-
-            v_list, R_list, H_list = EKF.associate_measurements(Z, C_AR)
-            v_list_ref, R_list_ref, H_list_ref = validation_run["associate_measurements_validation"][scan_idx]
-            if len(v_list) != len(v_list_ref) or len(R_list) != len(R_list_ref) or len(H_list) != len(H_list_ref):
-                print "You may have an error in Localization_EKF.associate_measurements."
-                return False
-            permutation = [np.argmin([norm(R - R_ref) for R_ref in R_list_ref]) for R in R_list]
-            v_error = sum([norm(v_list[j] - v_list_ref[k]) for j, k in enumerate(permutation)])
-            R_error = sum([norm(R_list[j] - R_list_ref[k]) for j, k in enumerate(permutation)])
-            H_error = sum([norm(H_list[j] - H_list_ref[k]) for j, k in enumerate(permutation)])
-            if v_error + R_error + H_error > 1e-6:
-                print "You may have an error in Localization_EKF.associate_measurements."
-                return False
-
-            EKF.measurement_update(Z, C_AR)
-            scan_idx = scan_idx + 1
-        EKF.transition_update(u, t1 - t0)
+    for i in range(len(validation_run["scans"])):
+        EKF.x, EKF.P = validation_run["associate_measurements_validation_inputs"][i]
+        alpha, r, C_AR, _, _ = ExtractLines(validation_run["scans"][i][1],
+                                            validation_run["scans"][i][2],
+                                            LineExtractionParams,
+                                            NoiseParams["var_theta"],
+                                            NoiseParams["var_rho"])
+        Z = np.vstack((alpha, r))
+        v_list, R_list, H_list = EKF.associate_measurements(Z, C_AR)
+        v_list_ref, R_list_ref, H_list_ref = validation_run["associate_measurements_validation"][i]
+        if len(v_list) != len(v_list_ref) or len(R_list) != len(R_list_ref) or len(H_list) != len(H_list_ref):
+            print "You may have an error in Localization_EKF.associate_measurements."
+            return False
+        permutation = [np.argmin([norm(R - R_ref) for R_ref in R_list_ref]) for R in R_list]
+        v_error = sum([norm(v_list[j] - v_list_ref[k]) for j, k in enumerate(permutation)])
+        R_error = sum([norm(R_list[j] - R_list_ref[k]) for j, k in enumerate(permutation)])
+        H_error = sum([norm(H_list[j] - H_list_ref[k]) for j, k in enumerate(permutation)])
+        if v_error + R_error + H_error > 1e-3:
+            print "You may have an error in Localization_EKF.associate_measurements."
+            return False
 
     print "Localization_EKF.associate_measurements seems to be correct"
     return True
@@ -220,10 +209,13 @@ if __name__ == '__main__':
     # validate_localization_EKF()
 
     ## Subcomponent validation
-    validate_localization_transition_model()
+    # validate_localization_transition_model()
     # validate_localization_map_line_to_predicted_measurement()
-    # validate_localization_associate_measurements()
+    validate_localization_associate_measurements()
 
     ### PROBLEM 2
 
     # validate_SLAM_EKF()
+    # validation_run = pickle.load(open("validation_run.p", "rb"))
+    # print validation_run.keys()
+    # print validation_run["states"][0]
