@@ -60,7 +60,7 @@ class EKF(object):
 
         Sigma = H.dot(self.P).dot(H.T) + R
         K = self.P.dot(H.T).dot(np.linalg.inv(Sigma))
-        self.x = self.x + K.dot(z).reshape(3,)
+        self.x = self.x + K.dot(z).reshape(K.dot(z).shape[0],)
         self.P = self.P - K.dot(Sigma).dot(K.T)
 
     # Converts raw measurement into the relevant Gaussian form (e.g., a dimensionality reduction);
@@ -100,10 +100,10 @@ class Localization_EKF(EKF):
         Gx = np.eye(self.x.size)
         Gu = np.zeros((self.x.size, 2))
 
-        # More Accurate Model
         DIVIDE_BY_ZERO_THRESHOLD = 10**(-15)
 
         if np.absolute(om) >= DIVIDE_BY_ZERO_THRESHOLD:
+            # Full Accuracy Model
             th_t = om * dt + th
             x_t = (v / om) * (np.sin(om * dt + th) - np.sin(th)) + x
             y_t = (-v / om) * (np.cos(om * dt + th) - np.cos(th)) + y
@@ -120,7 +120,8 @@ class Localization_EKF(EKF):
                 np.cos(om * dt + th) + (v / om) * dt * np.sin(om * dt + th)
             Gu[2, 1] = dt
         else:
-            # Use simpler model to handle singularity
+            # Assume x,y,th are constant through time step to handle singularity
+            # (simpler model)
             th_t = om * dt + th
             x_t = v * np.cos(th) * dt + x
             y_t = v * np.sin(th) * dt + y
@@ -214,8 +215,8 @@ class Localization_EKF(EKF):
         J = self.map_lines.shape[1]
 
         # If nothing is passed in, or map is empty, don't continue
-        if I==0 or J==0:
-            return v_list,R_list,H_list
+        if I == 0 or J == 0:
+            return v_list, R_list, H_list
 
         # Loop over all observed lines
         for i in range(I):
@@ -226,19 +227,22 @@ class Localization_EKF(EKF):
             # Loop over all maps
             for j in range(J):
                 # Compute H for each map line (j)
-                h, Hx = self.map_line_to_predicted_measurement(self.map_lines[:,j])
+                h, Hx = self.map_line_to_predicted_measurement(
+                    self.map_lines[:, j])
                 # Compute Mahalanobis distance
-                v_ij = rawZ[:,i] - h
+                v_ij = rawZ[:, i] - h
                 S_ij = Hx.dot(self.P).dot(Hx.T) + rawR[i]
-                d_ij = v_ij.T.dot(np.linalg.inv(S_ij)).dot(v_ij)  # Mahalanobis distance
+                d_ij = v_ij.T.dot(np.linalg.inv(S_ij)).dot(
+                    v_ij)  # Mahalanobis distance
 
-                # If this distance is the smallest we've seen, replace the min variables
+                # If this distance is the smallest we've seen, replace the min
+                # variables
                 if d_ij < d_min:
                     d_min = d_ij
                     v_min = v_ij
                     R_min = rawR[i]
                     H_min = Hx
-            
+
             # Add the smallest mahalanobis distance line to v_list
             if d_min < self.g**2:
                 v_list.append(v_min)
@@ -259,18 +263,18 @@ class Localization_EKF(EKF):
         # compute z, R, H
         ##############
         N = len(v_list)
-        
-        z = np.array([]).reshape(0,1)
-        R = np.array([]).reshape(0,R_list[0].shape[1])
-        H = np.array([]).reshape(0,H_list[0].shape[1])
-        
+
+        z = np.array([]).reshape(0, 1)
+        R = np.array([]).reshape(0, R_list[0].shape[1])
+        H = np.array([]).reshape(0, H_list[0].shape[1])
+
         for i in range(N):
-            z = np.vstack((z,v_list[i].reshape(2,1))) 
+            z = np.vstack((z, v_list[i].reshape(2, 1)))
             if R.shape[0] != 0:
-                R = scipy.linalg.block_diag(R.copy(),R_list[i])
+                R = scipy.linalg.block_diag(R.copy(), R_list[i])
             else:
-                R = R_list[i]    
-            H = np.vstack((H,H_list[i])) 
+                R = R_list[i]
+            H = np.vstack((H, H_list[i]))
 
         return z, R, H
 
@@ -287,14 +291,46 @@ class SLAM_EKF(EKF):
     # Adapt this method from Localization_EKF.transition_model.
     def transition_model(self, u, dt):
         v, om = u
-        x, y, th = self.x[:3]
+        x, y, th = self.x[0:3]
 
         #### TODO ####
-        # compute g, Gx, Gu (some shape hints below)
+        # compute g, Gx, Gu
+        ##############
+
         g = np.copy(self.x)
         Gx = np.eye(self.x.size)
         Gu = np.zeros((self.x.size, 2))
-        ##############
+
+        DIVIDE_BY_ZERO_THRESHOLD = 10**(-15)
+
+        if np.absolute(om) >= DIVIDE_BY_ZERO_THRESHOLD:
+            th_t = om * dt + th
+            x_t = (v / om) * (np.sin(om * dt + th) - np.sin(th)) + x
+            y_t = (-v / om) * (np.cos(om * dt + th) - np.cos(th)) + y
+            g[0:3] = np.array([x_t, y_t, th_t])
+
+            Gx[0, 2] = (v / om) * (np.cos(om * dt + th) - np.cos(th))
+            Gx[1, 2] = (v / om) * (np.sin(om * dt + th) - np.sin(th))
+
+            Gu[0, 0] = (1 / om) * (np.sin(om * dt + th) - np.sin(th))
+            Gu[1, 0] = (-1 / om) * (np.cos(om * dt + th) - np.cos(th))
+            Gu[0, 1] = (v / om**2) * (np.sin(th)) + (-v / om**2) * \
+                np.sin(om * dt + th) + (v / om) * dt * np.cos(om * dt + th)
+            Gu[1, 1] = (-v / om**2) * (np.cos(th)) + (v / om**2) * \
+                np.cos(om * dt + th) + (v / om) * dt * np.sin(om * dt + th)
+            Gu[2, 1] = dt
+        else:
+            # Use simpler model to handle singularity
+            th_t = om * dt + th
+            x_t = v * np.cos(th) * dt + x
+            y_t = v * np.sin(th) * dt + y
+            g[0:3] = np.array([x_t, y_t, th_t])
+            Gx = np.eye(self.x.size)
+            Gu = np.zeros((self.x.size, 2))
+            Gx[0:3, 2] = [-v * np.sin(th) * dt, v * np.cos(th) * dt, 1]
+            Gu[0, 0:2] = [np.cos(th) * dt, 0]
+            Gu[1, 0:2] = [np.sin(th) * dt, 0]
+            Gu[2, 0:2] = [0, dt]
 
         return g, Gx, Gu
 
@@ -316,6 +352,20 @@ class SLAM_EKF(EKF):
         # compute z, R, H (should be identical to Localization_EKF.measurement_model above)
         ##############
 
+        N = len(v_list)
+
+        z = np.array([]).reshape(0, 1)
+        R = np.array([]).reshape(0, R_list[0].shape[1])
+        H = np.array([]).reshape(0, H_list[0].shape[1])
+
+        for i in range(N):
+            z = np.vstack((z, v_list[i].reshape(2, 1)))
+            if R.shape[0] != 0:
+                R = scipy.linalg.block_diag(R.copy(), R_list[i])
+            else:
+                R = R_list[i]
+            H = np.vstack((H, H_list[i]))
+
         return z, R, H
 
     # Adapt this method from Localization_EKF.map_line_to_predicted_measurement.
@@ -323,23 +373,59 @@ class SLAM_EKF(EKF):
     # Note that instead of the actual parameters m = (alpha, r) we pass in the map line index j
     # so that we know which components of the Jacobian to fill in.
     def map_line_to_predicted_measurement(self, j):
-        # j is zero-indexed! (yeah yeah I know this doesn't match the pset
-        # writeup)
-        alpha, r = self.x[3 + 2 * j, 3 + 2 * j + 2]
+        alpha, r = self.x[(3+2*j):(3+2*j+2)]    # j is zero-indexed! (yeah yeah I know this doesn't match the pset writeup)
+
+        # Use mean expected position to compute line location
+        x, y, theta = self.x[0:3]
+        # (x, y, theta) transform from the robot base to the camera frame
+        xcam, ycam, theta_cam = self.tf_base_to_camera
+
+        #### TODO ####
+        # compute h, Hx
+        ##############
+
+        alpha_cam = alpha - theta_cam - theta
+
+        # rotation matrix from robot reference frame to world frame
+        R_cam = np.matrix([[np.cos(theta), -np.sin(theta), 0],
+                           [np.sin(theta), np.cos(theta), 0],
+                           [0, 0, 1]])
+        # rotation matrix to line reference frame from world frame
+        R_line = np.matrix([[np.cos(-alpha), -np.sin(-alpha)],
+                            [np.sin(-alpha), np.cos(-alpha)]])
+
+        # Find camera coordinates in robot frame
+        # (x_cam_w, y_cam_w, theta_cam_w)
+        cam_world_coords = np.squeeze(np.asarray(
+            np.dot(R_cam, self.tf_base_to_camera)))
+        # Offset for camera coords in world frame
+        cam_w = np.array([x + cam_world_coords[0], y + cam_world_coords[1]])
+
+        r_proj = np.squeeze(np.asarray(np.dot(R_line, cam_w)))
+        r_cam = r - r_proj[0]
+
+        # Store results in h array
+        h = np.array([alpha_cam, r_cam])
 
         #### TODO ####
         # compute h, Hx (you may find the skeleton for computing Hx below
         # useful)
 
         Hx = np.zeros((2, self.x.size))
-        Hx[:, :3] = FILLMEIN
+
+        Hx[0, 2] = -1
+        Hx[1, 0] = -np.cos(alpha)
+        Hx[1, 1] = -np.sin(alpha)
+        Hx[1, 2] = -(np.cos(alpha) * (-np.sin(theta) * xcam - np.cos(theta) *
+                                      ycam) + np.sin(alpha) * (np.cos(theta) * xcam - np.sin(theta) * ycam))
+        # Hx[:, :3] = FILLMEIN
         # First two map lines are assumed fixed so we don't want to propagate
         # any measurement correction to them
         if j > 1:
-            Hx[0, 3 + 2 * j] = FILLMEIN
-            Hx[1, 3 + 2 * j] = FILLMEIN
-            Hx[0, 3 + 2 * j + 1] = FILLMEIN
-            Hx[1, 3 + 2 * j + 1] = FILLMEIN
+            Hx[0, 3 + 2 * j] = 1
+            Hx[1, 3 + 2 * j] = -np.sin(alpha) * (x + np.cos(theta) * xcam - np.sin(theta) * ycam) + np.cos(alpha)*(y + np.sin(theta) * xcam + np.cos(theta) * ycam)
+            Hx[0, 3 + 2 * j + 1] = 0
+            Hx[1, 3 + 2 * j + 1] = 1
 
         ##############
 
@@ -355,5 +441,46 @@ class SLAM_EKF(EKF):
         #### TODO ####
         # compute v_list, R_list, H_list
         ##############
+
+        v_list = []
+        R_list = []
+        H_list = []
+
+        I = rawZ.shape[1]
+        J = (len(self.x) - 3) / 2
+
+        # If nothing is passed in, or map is empty, don't continue
+        if I == 0 or J == 0:
+            return v_list, R_list, H_list
+
+        # Loop over all observed lines
+        for i in range(I):
+
+            # Reset min to infinity for next test
+            d_min = float("inf")
+
+            # Loop over all maps
+            for j in range(J):
+                # Compute H for each map line (j)
+                h, Hx = self.map_line_to_predicted_measurement(j)
+                # Compute Mahalanobis distance
+                v_ij = rawZ[:, i] - h
+                S_ij = Hx.dot(self.P).dot(Hx.T) + rawR[i]
+                d_ij = v_ij.T.dot(np.linalg.inv(S_ij)).dot(
+                    v_ij)  # Mahalanobis distance
+
+                # If this distance is the smallest we've seen, replace the min
+                # variables
+                if d_ij < d_min:
+                    d_min = d_ij
+                    v_min = v_ij
+                    R_min = rawR[i]
+                    H_min = Hx
+
+            # Add the smallest mahalanobis distance line to v_list
+            if d_min < self.g**2:
+                v_list.append(v_min)
+                R_list.append(R_min)
+                H_list.append(H_min)
 
         return v_list, R_list, H_list
