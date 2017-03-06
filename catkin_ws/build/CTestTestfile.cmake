@@ -6,6 +6,10 @@
 # testing this directory and lists subdirectories to be tested as well.
 subdirs(gtest)
 subdirs(apriltags_ros/apriltags)
+subdirs(turtlebot_simulator/turtlebot_gazebo)
+subdirs(turtlebot_simulator/turtlebot_simulator)
+subdirs(turtlebot_simulator/turtlebot_stage)
+subdirs(turtlebot_simulator/turtlebot_stdr)
 subdirs(asl_turtlebot)
 subdirs(apriltags_ros/apriltags_ros)
 subdirs(turtlebot_control)
