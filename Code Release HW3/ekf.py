@@ -23,10 +23,6 @@ class EKF(object):
     def transition_update(self, u, dt):
         g, Gx, Gu = self.transition_model(u, dt)
 
-        #### TODO ####
-        # update self.x, self.P
-        ##############
-
         self.x = g
         self.P = Gx.dot(self.P).dot(Gx.T) + dt * Gu.dot(self.Q).dot(Gu.T)
 
@@ -53,10 +49,6 @@ class EKF(object):
         # line-based EKF localization)
         if z is None:
             return
-
-        #### TODO ####
-        # update self.x, self.P
-        ##############
 
         Sigma = H.dot(self.P).dot(H.T) + R
         K = self.P.dot(H.T).dot(np.linalg.inv(Sigma))
@@ -91,10 +83,6 @@ class Localization_EKF(EKF):
     def transition_model(self, u, dt):
         v, om = u
         x, y, th = self.x
-
-        #### TODO ####
-        # compute g, Gx, Gu
-        ##############
 
         g = np.copy(self.x)
         Gx = np.eye(self.x.size)
@@ -150,10 +138,6 @@ class Localization_EKF(EKF):
         # (x, y, theta) transform from the robot base to the camera frame
         xcam, ycam, theta_cam = self.tf_base_to_camera
 
-        #### TODO ####
-        # compute h, Hx
-        ##############
-
         alpha_cam = alpha - theta_cam - theta
 
         # rotation matrix from robot reference frame to world frame
@@ -202,10 +186,6 @@ class Localization_EKF(EKF):
     # H_list - list of len(v_list) Jacobians of the innovation vectors with
     # respect to the belief mean self.x
     def associate_measurements(self, rawZ, rawR):
-
-        #### TODO ####
-        # compute v_list, R_list, H_list
-        ##############
 
         v_list = []
         R_list = []
@@ -259,9 +239,6 @@ class Localization_EKF(EKF):
             print "Scanner sees", rawZ.shape[1], "line(s) but can't associate them with any map entries"
             return None, None, None
 
-        #### TODO ####
-        # compute z, R, H
-        ##############
         N = len(v_list)
 
         z = np.array([]).reshape(0, 1)
@@ -292,10 +269,6 @@ class SLAM_EKF(EKF):
     def transition_model(self, u, dt):
         v, om = u
         x, y, th = self.x[0:3]
-
-        #### TODO ####
-        # compute g, Gx, Gu
-        ##############
 
         g = np.copy(self.x)
         Gx = np.eye(self.x.size)
@@ -348,10 +321,6 @@ class SLAM_EKF(EKF):
             print "Scanner sees", rawZ.shape[1], "line(s) but can't associate them with any map entries"
             return None, None, None
 
-        #### TODO ####
-        # compute z, R, H (should be identical to Localization_EKF.measurement_model above)
-        ##############
-
         N = len(v_list)
 
         z = np.array([]).reshape(0, 1)
@@ -380,10 +349,6 @@ class SLAM_EKF(EKF):
         # (x, y, theta) transform from the robot base to the camera frame
         xcam, ycam, theta_cam = self.tf_base_to_camera
 
-        #### TODO ####
-        # compute h, Hx
-        ##############
-
         alpha_cam = alpha - theta_cam - theta
 
         # rotation matrix from robot reference frame to world frame
@@ -407,10 +372,6 @@ class SLAM_EKF(EKF):
         # Store results in h array
         h = np.array([alpha_cam, r_cam])
 
-        #### TODO ####
-        # compute h, Hx (you may find the skeleton for computing Hx below
-        # useful)
-
         Hx = np.zeros((2, self.x.size))
 
         Hx[0, 2] = -1
@@ -418,7 +379,7 @@ class SLAM_EKF(EKF):
         Hx[1, 1] = -np.sin(alpha)
         Hx[1, 2] = -(np.cos(alpha) * (-np.sin(theta) * xcam - np.cos(theta) *
                                       ycam) + np.sin(alpha) * (np.cos(theta) * xcam - np.sin(theta) * ycam))
-        # Hx[:, :3] = FILLMEIN
+
         # First two map lines are assumed fixed so we don't want to propagate
         # any measurement correction to them
         if j > 1:
@@ -437,10 +398,6 @@ class SLAM_EKF(EKF):
 
     # Adapt this method from Localization_EKF.associate_measurements.
     def associate_measurements(self, rawZ, rawR):
-
-        #### TODO ####
-        # compute v_list, R_list, H_list
-        ##############
 
         v_list = []
         R_list = []
