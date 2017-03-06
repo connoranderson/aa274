@@ -216,6 +216,6 @@ if __name__ == '__main__':
     ### PROBLEM 2
 
     validate_SLAM_EKF()
-    # validation_run = pickle.load(open("validation_run.p", "rb"))
-    # print validation_run.keys()
-    # print validation_run["states"][0]
+    validation_run = pickle.load(open("validation_run.p", "rb"))
+    print validation_run.keys()
+    print validation_run["states"][0]

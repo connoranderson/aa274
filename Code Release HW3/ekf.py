@@ -423,7 +423,7 @@ class SLAM_EKF(EKF):
         # any measurement correction to them
         if j > 1:
             Hx[0, 3 + 2 * j] = 1
-            Hx[1, 3 + 2 * j] = -np.sin(alpha) * (x + np.cos(theta) * xcam - np.sin(theta) * ycam) + np.cos(alpha)*(y + np.sin(theta) * xcam + np.cos(theta) * ycam)
+            Hx[1, 3 + 2 * j] = np.sin(alpha) * (x + np.cos(theta) * xcam - np.sin(theta) * ycam) + np.cos(alpha)*(y + np.sin(theta) * xcam + np.cos(theta) * ycam)
             Hx[0, 3 + 2 * j + 1] = 0
             Hx[1, 3 + 2 * j + 1] = 1
 
