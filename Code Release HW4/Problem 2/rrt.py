@@ -17,6 +17,8 @@ class RRT(object):
         self.x_goal = np.array(x_goal)                  # goal state
         # obstacle set (line segments)
         self.obstacles = obstacles
+        # size of planning tree
+        self.V_size = 1
 
     # Subject to the robot dynamics, returns whether a point robot moving along the shortest
     # path from x1 to x2 would collide with any obstacles (implemented for you as a "black box")
@@ -88,13 +90,14 @@ class RRT(object):
         # TODO: fill me in!
 
         for i in range(1,max_iters):
+            print 'iteration ', i
             # Randomly sample z
             z = np.random.random()
             # Bias the sample towards the goal state
             if z <= goal_bias:
                 x_rand = self.x_goal
             else:
-                x_rand = getRandomState()
+                x_rand = self.getRandomState()
 
             # Find the nearest point in the list of past points we've seen
             near_idx = self.find_nearest(V,x_rand)
@@ -104,43 +107,68 @@ class RRT(object):
 
             # Check whether new point is collision free
             if self.is_free_motion(self.obstacles,x_near,x_new):
-                V[i,:] = x_new
-                P[i] = near_idx
-                if x_new == self.x_goal:
+                V[self.V_size,:] = x_new
+                P[self.V_size] = near_idx
+                self.V_size += 1 
+                if np.array_equal(x_new,self.x_goal):
+                    success = True
+                    # solution_path = self.reconstructPath(V,P)
                     break
             if i == max_iters-1:
-                print 'Was not able to find a path'
+                print 'Was not able to find a path in ', max_iters,' iterations'
+                success = False
+                break
 
 
         plt.figure()
         plot_line_segments(self.obstacles, color="red",
                            linewidth=2, label="obstacles")
         self.plot_tree(V, P, color="blue", linewidth=.5, label="RRT tree")
-        if success:
-            self.plot_path(solution_path, color="green",
-                           linewidth=2, label="solution path")
-        plt.scatter(V[:n, 0], V[:n, 1])
-        plt.scatter([self.x_init[0], self.x_goal[0]], [self.x_init[
-                    1], self.x_goal[1]], color="green", s=30, zorder=10)
-        plt.annotate(r"$x_{init}$", self.x_init[:2] + [.2, 0], fontsize=16)
-        plt.annotate(r"$x_{goal}$", self.x_goal[:2] + [.2, 0], fontsize=16)
-        plt.legend(loc='upper center', bbox_to_anchor=(
-            0.5, -0.03), fancybox=True, ncol=3)
+        # if success:
+        #     self.plot_path(solution_path, color="green",
+        #                    linewidth=2, label="solution path")
+        # plt.scatter(V[:n, 0], V[:n, 1])
+        # plt.scatter([self.x_init[0], self.x_goal[0]], [self.x_init[
+        #             1], self.x_goal[1]], color="green", s=30, zorder=10)
+        # plt.annotate(r"$x_{init}$", self.x_init[:2] + [.2, 0], fontsize=16)
+        # plt.annotate(r"$x_{goal}$", self.x_goal[:2] + [.2, 0], fontsize=16)
+        # plt.legend(loc='upper center', bbox_to_anchor=(
+        #     0.5, -0.03), fancybox=True, ncol=3)
 
-
-    @staticmethod
-    def getRandomState():
+    def getRandomState(self):
+        state_dim = len(self.x_init)
         return [np.random.uniform(self.statespace_lo[i],self.statespace_hi[i]) for i in range(state_dim)]
+
+    def reconstructPath(self,V,P):
+        x_cur = self.x_goal
+        path = []
+        while not np.array_equal(x_cur,self.x_init):
+            path.append(x_cur)
+            i_max = np.where((V == x_cur).all(axis=1))
+            # V[i_max] = x_goal
+            # P[i_max] = i_prev
+            # V[i_prev] = x_g-1
+        
+
 
 # Represents a geometric planning problem, where the steering solution between two points is a
 # straight line (Euclidean metric)
 class GeometricRRT(RRT):
 
     def find_nearest(self, V, x):
-        # TODO: fill me in!
+        # Find out how many rows of V have been filled in
+        numStates = self.V_size
+        # Find distances to all filled in points
+        dist = [np.linalg.norm((np.asarray(x)-np.asarray(V[i,:]))) for i in range(numStates)]
+        return np.argmin(np.asarray(dist))
 
     def steer_towards(self, x, y, eps):
-        # TODO: fill me in!
+        if np.linalg.norm(y-x) > eps:
+            # Unit vector pointing towards new point
+            v_dir = (y-x)/np.linalg.norm(y-x)
+            return (x+v_dir*eps)
+        else:
+            return y
 
     def is_free_motion(self, obstacles, x1, x2):
         motion = np.array([x1, x2])
@@ -174,9 +202,11 @@ class DubinsRRT(RRT):
 
     def find_nearest(self, V, x):
         # TODO: fill me in!
+        pass
 
     def steer_towards(self, x, y, eps):
         # TODO: fill me in!
+        pass
 
     def is_free_motion(self, obstacles, x1, x2, resolution=np.pi / 6):
         pts = path_sample(x1, x2, self.turning_radius,
@@ -229,8 +259,8 @@ MAZE = np.array([
 grrt = GeometricRRT([-5, -5], [5, 5], [-4, -4], [4, 4], MAZE)
 grrt.solve(1.0, 2000)
 
-drrt = DubinsRRT([-5, -5, 0], [5, 5, 2 * np.pi],
-                 [-4, -4, 0], [4, 4, np.pi / 2], MAZE, .5)
-drrt.solve(1.0, 1000)
+# drrt = DubinsRRT([-5, -5, 0], [5, 5, 2 * np.pi],
+#                  [-4, -4, 0], [4, 4, np.pi / 2], MAZE, .5)
+# drrt.solve(1.0, 1000)
 
 plt.show()
