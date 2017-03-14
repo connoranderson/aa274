@@ -112,7 +112,7 @@ class RRT(object):
                 self.V_size += 1 
                 if np.array_equal(x_new,self.x_goal):
                     success = True
-                    # solution_path = self.reconstructPath(V,P)
+                    solution_path = self.reconstructPath(V,P)
                     break
             if i == max_iters-1:
                 print 'Was not able to find a path in ', max_iters,' iterations'
@@ -124,16 +124,16 @@ class RRT(object):
         plot_line_segments(self.obstacles, color="red",
                            linewidth=2, label="obstacles")
         self.plot_tree(V, P, color="blue", linewidth=.5, label="RRT tree")
-        # if success:
-        #     self.plot_path(solution_path, color="green",
-        #                    linewidth=2, label="solution path")
-        # plt.scatter(V[:n, 0], V[:n, 1])
-        # plt.scatter([self.x_init[0], self.x_goal[0]], [self.x_init[
-        #             1], self.x_goal[1]], color="green", s=30, zorder=10)
-        # plt.annotate(r"$x_{init}$", self.x_init[:2] + [.2, 0], fontsize=16)
-        # plt.annotate(r"$x_{goal}$", self.x_goal[:2] + [.2, 0], fontsize=16)
-        # plt.legend(loc='upper center', bbox_to_anchor=(
-        #     0.5, -0.03), fancybox=True, ncol=3)
+        if success:
+            self.plot_path(solution_path, color="green",
+                           linewidth=2, label="solution path")
+        plt.scatter(V[:n, 0], V[:n, 1])
+        plt.scatter([self.x_init[0], self.x_goal[0]], [self.x_init[
+                    1], self.x_goal[1]], color="green", s=30, zorder=10)
+        plt.annotate(r"$x_{init}$", self.x_init[:2] + [.2, 0], fontsize=16)
+        plt.annotate(r"$x_{goal}$", self.x_goal[:2] + [.2, 0], fontsize=16)
+        plt.legend(loc='upper center', bbox_to_anchor=(
+            0.5, -0.03), fancybox=True, ncol=3)
 
     def getRandomState(self):
         state_dim = len(self.x_init)
@@ -141,14 +141,15 @@ class RRT(object):
 
     def reconstructPath(self,V,P):
         x_cur = self.x_goal
+        iPrev = self.V_size - 1
         path = []
-        while not np.array_equal(x_cur,self.x_init):
+        while True:
             path.append(x_cur)
-            i_max = np.where((V == x_cur).all(axis=1))
-            # V[i_max] = x_goal
-            # P[i_max] = i_prev
-            # V[i_prev] = x_g-1
-        
+            iPrev = P[iPrev]
+            if iPrev == -1:
+                break
+            x_cur = V[iPrev]
+        return path   
 
 
 # Represents a geometric planning problem, where the steering solution between two points is a
