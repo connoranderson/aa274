@@ -67,12 +67,8 @@ class AStar(object):
                 solutionNeighbors.append((x[0]+i*self.resolution,x[1]+j*self.resolution))
 
         solutionNeighbors.remove(x) # Remove self from the neighbor set
-        
-        # Verify that all neighbors are in bounds
-        # for x_neigh in solutionNeighbors:
-        #     if not self.is_free(x_neigh):
-        #         solutionNeighbors.remove(x_neigh)
 
+        # Only keep solutions which won't collide with edge of map or obstacles
         solutionNeighbors = [x_neigh for x_neigh in solutionNeighbors if self.is_free(x_neigh)]
 
         return solutionNeighbors
