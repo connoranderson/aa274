@@ -143,13 +143,15 @@ class RRT(object):
         x_cur = self.x_goal
         iPrev = self.V_size - 1
         path = []
+        # Create list of states sequentially representing path
         while True:
             path.append(x_cur)
             iPrev = P[iPrev]
             if iPrev == -1:
                 break
             x_cur = V[iPrev]
-        return path   
+        # Since list of states begins with x_goal, reverse to put in correct order for plotting
+        return np.flipud(np.asarray(path))
 
 
 # Represents a geometric planning problem, where the steering solution between two points is a
@@ -240,7 +242,6 @@ class DubinsRRT(RRT):
         plot_line_segments(line_segments, **kwargs)
 
     def plot_path(self, V, resolution=np.pi / 24, **kwargs):
-        V = np.flipud(np.array(V))
         pts = []
         for i in range(V.shape[0] - 1):
             pts.extend(path_sample(
