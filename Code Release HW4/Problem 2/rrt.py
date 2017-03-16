@@ -107,7 +107,7 @@ class RRT(object):
 
             # Check whether new point is collision free
             if self.is_free_motion(self.obstacles,x_near,x_new):
-                V[self.V_size,:] = x_new
+                V[self.V_size,:] = np.asarray(x_new)
                 P[self.V_size] = near_idx
                 self.V_size += 1 
                 if np.array_equal(x_new,self.x_goal):
@@ -202,13 +202,22 @@ class DubinsRRT(RRT):
             statespace_lo, statespace_hi, x_init, x_goal, obstacles)
 
     def find_nearest(self, V, x):
-        # TODO: fill me in!
-        pass
+        # Find out how many rows of V have been filled in
+        numStates = self.V_size
+        lengths = []
+        for i in range(numStates):
+            lengths.append(path_length(V[i,:],x, self.turning_radius))
+        return np.argmin(lengths)
 
     def steer_towards(self, x, y, eps):
-        # TODO: fill me in!
-        pass
-
+        # if y[0] == self.x_goal[0] and y[1] == self.x_goal[1]:
+        #     pass
+        # if y[0] == self.x_goal[0] and y[1] == self.x_goal[1] and path_length(x,y,self.turning_radius) < eps:
+        #     pass
+        if path_length(x,y,self.turning_radius) < eps:
+            return y
+        return path_sample(x,y,self.turning_radius,eps)[0][1]
+       
     def is_free_motion(self, obstacles, x1, x2, resolution=np.pi / 6):
         pts = path_sample(x1, x2, self.turning_radius,
                           self.turning_radius * resolution)[0]
@@ -231,6 +240,7 @@ class DubinsRRT(RRT):
         plot_line_segments(line_segments, **kwargs)
 
     def plot_path(self, V, resolution=np.pi / 24, **kwargs):
+        V = np.flipud(np.array(V))
         pts = []
         for i in range(V.shape[0] - 1):
             pts.extend(path_sample(
@@ -260,8 +270,8 @@ MAZE = np.array([
 grrt = GeometricRRT([-5, -5], [5, 5], [-4, -4], [4, 4], MAZE)
 grrt.solve(1.0, 2000)
 
-# drrt = DubinsRRT([-5, -5, 0], [5, 5, 2 * np.pi],
-#                  [-4, -4, 0], [4, 4, np.pi / 2], MAZE, .5)
-# drrt.solve(1.0, 1000)
+drrt = DubinsRRT([-5, -5, 0], [5, 5, 2 * np.pi],
+                 [-4, -4, 0], [4, 4, np.pi / 2], MAZE, .5)
+drrt.solve(1.0, 1000)
 
 plt.show()
